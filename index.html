@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PescaPT Live</title>
+<meta name="description" content="Previsão de pesca para a costa portuguesa: meteo, mar, marés, melhor hora e espécies com tamanhos mínimos. Fishing forecast for the Portuguese coast.">
+<meta name="theme-color" content="#0f2428">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta property="og:title" content="PescaPT Live">
+<meta property="og:description" content="Fishing forecast for the Portuguese coast · Previsão de pesca para a costa portuguesa">
+<meta property="og:image" content="screenshot.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: coluna única tipo tábua de marés; barra de separadores em baixo (Previsão · Espécies · Guia) */
+:root{
+  --bg:#eaf1f0; --surface:#ffffff; --surface-2:#f3f7f6; --ink:#0f2a2e; --muted:#587376; --line:#d2dfdd;
+  --accent:#d9522a; --tide:#1c7486; --night:rgba(15,42,46,.06); --warn-bg:#fff4dc; --warn-ink:#7a4d00;
+  --s-exc:#1f8f52; --s-good:#5aa834; --s-ok:#d39a1c; --s-weak:#e0702b; --s-bad:#c93c3c;
+  --font-display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --font-body:"Instrument Sans",-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:14px; --nav-h:62px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#08181b; --surface:#0f2428; --surface-2:#132d32; --ink:#e3efed; --muted:#8aa6a8; --line:#1f3c41;
+    --accent:#ff7a45; --tide:#4fc3d6; --night:rgba(0,0,0,.28); --warn-bg:#2e2410; --warn-ink:#f3c770;
+    --s-exc:#3fcf7e; --s-good:#9ccc4a; --s-ok:#f0b93a; --s-weak:#f08a45; --s-bad:#ef5b5b;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#08181b; --surface:#0f2428; --surface-2:#132d32; --ink:#e3efed; --muted:#8aa6a8; --line:#1f3c41;
+  --accent:#ff7a45; --tide:#4fc3d6; --night:rgba(0,0,0,.28); --warn-bg:#2e2410; --warn-ink:#f3c770;
+  --s-exc:#3fcf7e; --s-good:#9ccc4a; --s-ok:#f0b93a; --s-weak:#f08a45; --s-bad:#ef5b5b;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--ink)}
+body{font:15px/1.45 var(--font-body);-webkit-tap-highlight-color:transparent;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px))}
+button,select{font:inherit;color:inherit}
+a{color:var(--tide)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding-block:14px 28px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+.view{display:flex;flex-direction:column;gap:14px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Cabeçalho */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font:800 1.45rem/1 var(--font-display);letter-spacing:-.02em}
+.brand b{color:var(--accent)}
+.tagline{font-size:.72rem;color:var(--muted);margin-top:3px}
+.top-r{display:flex;align-items:center;gap:8px}
+.updated{font-size:.68rem;color:var(--muted);text-align:right;line-height:1.3}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.lang button{border:none;background:none;padding:5px 9px;font:700 .7rem var(--font-mono);cursor:pointer;color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+/* Seletor */
+.zone{display:flex;gap:8px}
+.select{position:relative;flex:1;min-width:0}
+.select select{width:100%;appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 36px 12px 14px;font-weight:600;cursor:pointer}
+.select::after{content:"";position:absolute;right:15px;top:50%;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 14px;font-weight:600;font-size:.85rem;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:hover{border-color:var(--muted)}
+.btn svg{width:16px;height:16px}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.msg{font-size:.8rem;color:var(--muted)}
+.msg.err{color:var(--s-bad)}
+
+/* Dias */
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 2px 7px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.day .dn{font-size:.66rem;color:var(--muted);text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.day .ds{font:700 .95rem/1 var(--font-mono)}
+.day .bar{width:60%;height:4px;border-radius:2px;background:var(--line)}
+.day[aria-pressed="true"]{border-color:var(--ink);background:var(--surface-2)}
+
+/* Avisos */
+.alert{background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:10px 12px;font-size:.84rem;display:flex;gap:10px;align-items:flex-start}
+.alert b{font-weight:700}
+.alert svg{flex-shrink:0;width:18px;height:18px;margin-top:1px}
+
+/* Veredicto */
+.verdict{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
+.verdict::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--vc,var(--line))}
+.v-head{display:flex;align-items:center;gap:14px}
+.gauge{width:76px;height:76px;flex-shrink:0;position:relative}
+.gauge svg{width:100%;height:100%;transform:rotate(-90deg)}
+.gauge .num{position:absolute;inset:0;display:grid;place-items:center;font:700 1.5rem/1 var(--font-mono)}
+.v-word{font:800 1.6rem/1.05 var(--font-display);letter-spacing:-.02em;color:var(--vc);text-wrap:balance}
+.v-sub{font-size:.85rem;color:var(--muted);margin-top:3px}
+.windows{display:flex;flex-wrap:wrap;gap:8px}
+.win{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column}
+.win small,.lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.win strong{font:700 1.05rem/1.2 var(--font-mono)}
+.factors{list-style:none;display:flex;flex-direction:column;gap:5px;font-size:.86rem}
+.factors li{display:flex;gap:8px;align-items:flex-start}
+.factors i{font-style:normal;width:18px;height:18px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font:700 .72rem/1 var(--font-mono);margin-top:1px}
+.factors .p i{background:color-mix(in srgb,var(--s-exc) 18%,transparent);color:var(--s-exc)}
+.factors .m i{background:color-mix(in srgb,var(--s-weak) 18%,transparent);color:var(--s-weak)}
+.factors .d i{background:var(--s-bad);color:#fff}
+.factors .d{font-weight:600;color:var(--s-bad)}
+.astro{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.astro div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.astro strong{font:600 .9rem/1.2 var(--font-mono);display:flex;align-items:center;gap:6px}
+.astro .moonname{font-family:var(--font-body);font-size:.8rem;min-width:0}
+
+/* Secções */
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sec h2{font:700 1rem/1.2 var(--font-display);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sec h2 span{font:500 .72rem var(--font-body);color:var(--muted);text-align:right}
+
+/* Dicas */
+.tips{list-style:none;display:flex;flex-direction:column;gap:8px;font-size:.88rem}
+.tips li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start}
+.tips svg{width:20px;height:20px;color:var(--tide);margin-top:1px}
+
+/* Gráfico */
+.chart svg{width:100%;height:auto;display:block;touch-action:manipulation}
+.chart .hit{cursor:pointer}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.7rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+/* Hora */
+.hourhead{display:flex;justify-content:space-between;align-items:baseline}
+.hourhead strong{font:700 1.1rem var(--font-mono)}
+.hourhead span{font-size:.8rem;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cell{background:var(--surface-2);border-radius:10px;padding:9px 11px;min-width:0}
+.cell small{display:block;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.cell strong{font:600 .98rem/1.3 var(--font-mono);display:flex;align-items:center;gap:6px}
+.cell em{font-style:normal;font-size:.75rem;color:var(--muted)}
+.arrow{width:16px;height:16px;flex-shrink:0;color:var(--tide)}
+
+/* Marés */
+.tides{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.tide{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.tide small{display:block;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.tide strong{font:700 1.05rem var(--font-mono)}
+.tide em{font-style:normal;font-size:.75rem;color:var(--muted);font-family:var(--font-mono)}
+.tide.hi small{color:var(--tide)}
+.note{font-size:.74rem;color:var(--muted)}
+
+/* Plano B */
+.alts{display:flex;flex-direction:column;gap:6px}
+.alt{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;background:var(--surface-2);border:1px solid transparent;border-radius:12px;padding:8px 10px;cursor:pointer;text-align:left;width:100%}
+.alt:hover{border-color:var(--line)}
+.alt .sc{font:700 1.05rem var(--font-mono);text-align:center;border-radius:8px;padding:6px 0;color:#fff}
+.alt b{display:block;font-weight:600;font-size:.9rem}
+.alt i{font-style:normal;font-size:.74rem;color:var(--muted)}
+.alt .km{font:500 .74rem var(--font-mono);color:var(--muted)}
+.alt.cur{border-color:var(--ink)}
+
+/* Espécies */
+.sp-list{display:flex;flex-direction:column;gap:8px}
+.sp{display:flex;align-items:center;gap:12px;background:var(--surface-2);border:1px solid transparent;border-radius:12px;padding:8px;cursor:pointer;text-align:left;width:100%}
+.sp:hover{border-color:var(--line)}
+.thumb{width:66px;height:50px;border-radius:8px;object-fit:cover;background:var(--line);flex-shrink:0}
+.sp-info{flex:1;min-width:0}
+.sp-info b{display:block;font-weight:600}
+.sp-info i{font-size:.75rem;color:var(--muted)}
+.season{display:inline-block;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--s-exc);margin-left:6px;vertical-align:2px}
+.closed{color:var(--s-bad)}
+.minsize{text-align:right;flex-shrink:0}
+.minsize small{display:block;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.minsize strong{font:700 1.05rem var(--font-mono);color:var(--accent)}
+.filter{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.8rem;font-weight:600;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* Ficha */
+dialog{border:none;padding:0;background:var(--surface);color:var(--ink);border-radius:18px;width:min(440px,calc(100% - 24px));max-height:calc(100% - 40px);margin:auto}
+dialog::backdrop{background:rgba(4,14,16,.6)}
+.sheet-img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:var(--line);max-width:100%}
+.sheet-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.sheet-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sheet-title h3{font:800 1.4rem/1.1 var(--font-display)}
+.sheet-title i{font-size:.82rem;color:var(--muted)}
+.big-min{background:var(--accent);color:#fff;border-radius:10px;padding:6px 10px;text-align:center;flex-shrink:0}
+.big-min small{display:block;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;opacity:.9}
+.big-min strong{font:700 1.15rem var(--font-mono)}
+.rows{display:flex;flex-direction:column;gap:8px;font-size:.88rem}
+.rows div{display:grid;grid-template-columns:92px 1fr;gap:8px}
+.rows dt{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding-top:2px}
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
+.months span{font:500 .6rem var(--font-mono);text-align:center;padding:3px 0;border-radius:3px;background:var(--surface-2);color:var(--muted)}
+.months span.on{background:color-mix(in srgb,var(--s-exc) 25%,transparent);color:var(--ink)}
+.months span.now{outline:1.5px solid var(--ink)}
+.close{align-self:stretch;background:var(--ink);color:var(--bg);border:none;border-radius:10px;padding:12px;font-weight:600;cursor:pointer}
+.credit{font-size:.66rem;color:var(--muted)}
+
+/* Guia */
+.guide details{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.guide summary{list-style:none;cursor:pointer;padding:14px 16px;font:700 1rem var(--font-display);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.guide summary::-webkit-details-marker{display:none}
+.guide summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s;flex-shrink:0}
+.guide details[open] summary::after{transform:rotate(-135deg)}
+.guide .gbody{padding:0 16px 16px;font-size:.9rem;display:flex;flex-direction:column;gap:10px;max-width:65ch}
+.guide .gbody h4{font:600 .72rem var(--font-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:4px}
+.guide ul,.guide ol{padding-left:20px;display:flex;flex-direction:column;gap:5px}
+.guide .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.88rem}
+.guide .kv b{font-family:var(--font-mono);font-weight:700}
+.guide .links a{display:block;padding:4px 0}
+.intro{font-size:.9rem;color:var(--muted);max-width:65ch}
+
+/* Navegação inferior */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.nav-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);height:var(--nav-h)}
+.nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--muted);font-size:.72rem;font-weight:600}
+.nav a svg{width:22px;height:22px}
+.nav a[aria-current="page"]{color:var(--accent)}
+
+.skeleton{color:var(--muted);font-size:.85rem;padding:24px 0;text-align:center}
+.errbox{border:1px solid var(--s-bad);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.foot{font-size:.7rem;color:var(--muted);text-align:center;padding-top:4px}
+@media (prefers-reduced-motion: no-preference){ .gauge circle.val{transition:stroke-dashoffset .6s ease} }
+@media (max-width:370px){ .day .dn{font-size:.58rem} .astro{grid-template-columns:repeat(2,minmax(0,1fr))} .updated{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="brand">Pesca<b>PT</b> Live</div>
+      <div class="tagline" data-i18n="tagline"></div>
+    </div>
+    <div class="top-r">
+      <div class="updated" id="updated"></div>
+      <div class="lang" role="group" aria-label="Idioma / Language">
+        <button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="zone" id="zoneBar">
+    <div class="select">
+      <label for="zoneSelect" class="sr" data-i18n="zoneLabel"></label>
+      <select id="zoneSelect"></select>
+    </div>
+    <button class="btn" id="geoBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span data-i18n="near"></span>
+    </button>
+  </div>
+  <div class="msg" id="geoMsg" hidden></div>
+
+  <!-- PREVISÃO -->
+  <section class="view" id="v-forecast">
+    <nav class="days" id="days"></nav>
+    <div id="alerts" class="view"></div>
+    <div id="main" class="view"><div class="skeleton">…</div></div>
+  </section>
+
+  <!-- ESPÉCIES -->
+  <section class="view" id="v-species" hidden>
+    <p class="intro" id="spIntro"></p>
+    <div class="filter" id="spFilter"></div>
+    <div id="spAlert"></div>
+    <div class="sp-list" id="speciesList"></div>
+    <p class="note" id="spNote"></p>
+  </section>
+
+  <!-- GUIA -->
+  <section class="view guide" id="v-guide" hidden></section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<nav class="nav" aria-label="Secções">
+  <div class="nav-in">
+    <a href="#forecast" data-view="forecast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 15c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2M2 20c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><circle cx="12" cy="7" r="3"/></svg><span data-i18n="tabForecast"></span></a>
+    <a href="#species" data-view="species"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12c3-5 10-6 15 0-5 6-12 5-15 0zM18 12l4-3v6z"/><circle cx="8" cy="11" r="1" fill="currentColor"/></svg><span data-i18n="tabSpecies"></span></a>
+    <a href="#guide" data-view="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/></svg><span data-i18n="tabGuide"></span></a>
+  </div>
+</nav>
+
+<dialog id="sheet" aria-labelledby="sheetName">
+  <img class="sheet-img" id="sheetImg" alt="">
+  <div class="sheet-body">
+    <div class="sheet-title">
+      <div><h3 id="sheetName"></h3><i id="sheetSci"></i></div>
+      <div class="big-min"><small data-i18n="legalMin"></small><strong id="sheetMin"></strong></div>
+    </div>
+    <div id="sheetAlert"></div>
+    <dl class="rows" id="sheetRows"></dl>
+    <div>
+      <div class="note" style="margin-bottom:5px" data-i18n="bestMonths"></div>
+      <div class="months" id="sheetMonths"></div>
+    </div>
+    <div class="credit" id="sheetCredit"></div>
+    <button class="close" id="sheetClose" type="button" data-i18n="close"></button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* =====================================================================
+   TEXTOS PT / EN
+   ===================================================================== */
+const T = {
+pt:{
+  tagline:"Previsão de pesca para a costa portuguesa", zoneLabel:"Zona de pesca", near:"Perto",
+  tabForecast:"Previsão", tabSpecies:"Espécies", tabGuide:"Guia",
+  loading:"A carregar previsão para {z}…", updatedNow:"atualizado agora", updatedAgo:"atualizado há {n} min",
+  errTitle:"Não foi possível obter a previsão.", errHint:"Verifica a ligação à internet e tenta de novo.", retry:"Tentar de novo",
+  today:"Hoje", tomorrow:"Amanhã",
+  dayOver:"O dia está a terminar", dayOverSub:"Escolhe amanhã ou outro dia acima.",
+  v_danger:"Perigoso", v_exc:"Excelente", v_good:"Bom dia", v_ok:"Razoável", v_weak:"Fraco", v_bad:"Mau",
+  leadDanger:"Não é dia para ir à costa.", leadGo:"Vale a pena ir entre {a} e {b}.", leadMaybe:"Pesca possível entre {a} e {b}.", leadToday:" Contam só as horas que faltam hoje.",
+  bestWin:"Melhor período", altWin:"Alternativa",
+  dangerLine:"Mar ou vento perigosos em grande parte do dia. Evita rochas e molhes expostos.",
+  sunrise:"Nascer do sol", sunset:"Pôr do sol", moon:"Lua",
+  hourly:"Hora a hora", tapBar:"toca numa barra", lgScore:"Pontuação", lgTide:"Maré", lgNight:"Noite",
+  scoreOf:"pontuação", wind:"Vento", gusts:"rajadas", swell:"Ondulação", from:"de", tide:"Maré", rising:"A encher", falling:"A vazar",
+  hiAt:"preia-mar às {t}", loAt:"baixa-mar às {t}", seaTemp:"Água do mar", air:"ar", rain:"Chuva", noRain:"sem chuva",
+  pressure:"Pressão", pDown:"a descer", pUp:"a subir", pStable:"estável",
+  tides:"Marés", atBar:"na barra", atCoast:"na costa", high:"Preia-mar", low:"Baixa-mar",
+  tideNote:"Altura relativa ao nível médio do mar. Calculada por modelo, pode falhar 20–40 min junto à costa.",
+  springNote:"Marés vivas: mais amplitude e mais corrente.", neapNote:"Marés mortas: menos amplitude.",
+  noMarine:"Sem dados de mar para esta zona.", noTides:"Sem marés calculadas para este dia.",
+  tipsTitle:"Como pescar neste dia",
+  planB:"Plano B", planBSub:"zonas próximas no mesmo dia", compare:"Comparar zonas próximas", comparing:"A comparar…",
+  planBHint:"Não há pesqueiro milagroso. Se o mar não serve aqui, pode servir a 30 km.", here:"aqui", noAlts:"Não há outras zonas a menos de 100 km.",
+  legalMin:"Mínimo legal", minShort:"mínimo", bestMonths:"Melhores meses", close:"Fechar", photo:"Foto",
+  inSeason:"em época", closedSeason:"defeso",
+  spIntro:"Espécies mais comuns na zona escolhida. Toca numa para ver onde, com que isco e quando.",
+  allSp:"Todas as espécies", zoneSp:"Desta zona",
+  spNote:"Tamanhos mínimos: tabela da DGRM de 30-10-2025 (continente). Peixe abaixo do mínimo volta logo à água, mesmo que esteja morto.",
+  islandAlert:"<b>Regras regionais.</b> Nos Açores e na Madeira os tamanhos mínimos e limites são fixados pelo governo regional e podem ser diferentes dos do continente mostrados aqui. Confirma antes de levar peixe.",
+  sOnde:"Onde", sIsco:"Isco", sTec:"Técnica", sCond:"Condições",
+  robaloAlert:"Desde janeiro de 2026 tens de registar cada robalo que guardas na app <b>RecFishing</b>.",
+  sargoPnsacvAlert:"Defeso de 1 a 28 de fevereiro na pesca apeada no Parque Natural do Sudoeste Alentejano e Costa Vicentina.",
+  a_bathing:"<b>Época balnear.</b> Em muitas praias vigiadas a pesca é proibida durante o horário de banhos. Vê o edital da capitania local.",
+  a_pnsacv:"<b>Defeso do sargo e da safia</b> até 28 de fevereiro na pesca apeada em todo o Parque Natural do Sudoeste Alentejano e Costa Vicentina.",
+  a_pnsacvB:"<b>Defeso do bodião</b> (1 mar – 31 mai) no Parque Natural do Sudoeste Alentejano e Costa Vicentina.",
+  a_arrabida:"<b>Parque Marinho da Arrábida.</b> Há zonas de proteção total e parcial onde a pesca lúdica é proibida. Confirma o mapa antes de ir.",
+  a_berlengas:"<b>Reserva das Berlengas.</b> A ilha e os ilhéus têm regras de pesca próprias.",
+  a_tejo:"<b>Tejo:</b> máximo 2 canas e 3 anzóis, e é proibido pescar a menos de 300 m de cais e terminais.",
+  a_sado:"<b>Sado:</b> máximo 2 canas e 3 anzóis.",
+  a_river2:"<b>Neste estuário</b> só podes usar 2 canas em simultâneo.",
+  a_island:"<b>Regras regionais.</b> Confirma licença, tamanhos e limites junto da Região Autónoma.",
+  moonNames:["Lua nova","Crescente","Quarto crescente","Gibosa crescente","Lua cheia","Gibosa minguante","Quarto minguante","Minguante"],
+  dirs:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"],
+  f_windLight:"Vento fraco ({v} km/h {d})", f_windMod:"Vento moderado ({v} km/h {d})", f_windFresh:"Vento fresco ({v} km/h {d})",
+  f_windStrong:"Vento forte ({v} km/h {d})", f_windVery:"Vento muito forte ({v} km/h)", f_gusts:"Rajadas até {v} km/h",
+  f_seaCalmEst:"Mar calmo ({h} m)", f_seaFlat:"Mar muito calmo ({h} m), pouca espuma", f_seaFoam:"Ondulação de {h} m, mar com espuma",
+  f_sea:"Ondulação de {h} m", f_seaStrong:"Ondulação forte ({h} m)", f_seaBig:"Mar grosso ({h} m)",
+  f_rainHeavy:"Chuva forte ({v} mm/h)", f_showers:"Aguaceiros",
+  f_pDownSlow:"Pressão a descer devagar", f_pDownFast:"Pressão a cair depressa", f_pUpFast:"Pressão a subir depressa",
+  f_slack:"Água parada na baixa-mar", f_flood:"Enchente até à preia-mar das {t}", f_rising:"Maré a encher", f_ebbStart:"Início da vazante",
+  f_nearLow:"Perto da baixa-mar", f_ebbEst:"Vazante com corrente",
+  f_dawn:"Amanhecer (nascer do sol {t})", f_dusk:"Entardecer (pôr do sol {t})", f_noon:"Sol forte a meio do dia",
+  f_spring:"Marés vivas (lua nova ou cheia)", f_danger:"Perigoso: mar ou vento demasiado fortes para a costa",
+  tip_flat:"Mar parado e água limpa: o peixe vê tudo. Pesca fino e leve, chega à pedra sem barulho e sem fazer sombra na água. O amanhecer, o entardecer e a noite rendem mais.",
+  tip_foam:"Há espuma junto às pedras e é aí que sargos e robalos comem. Pesca primeiro mesmo junto à costa, só depois lança para longe.",
+  tip_rough:"Mar mexido: as pedras rasas ficam demasiado batidas. Procura pesqueiros mais fundos ou cantos abrigados onde a espuma chega sem varrer a pedra.",
+  tip_big:"Mar grande: só pesqueiros altos e fundos, longe da linha de água. Observa o mar uns minutos antes de descer. Pedra molhada quer dizer que as ondas lá chegam.",
+  tip_north:"Nortada ({v} km/h): as enseadas viradas a sul e os cantos abrigados do vento norte são a melhor aposta.",
+  tip_wind:"Vento de {d} ({v} km/h): escolhe costa abrigada desse lado, com a terra entre ti e o vento.",
+  tip_spring:"Marés vivas: na baixa-mar ficam pedras a descoberto, mas a enchente volta depressa. Não te deixes encurralar.",
+  tip_estuary:"Estuário: pesca as mudanças de maré, quando a corrente começa a mexer, e as horas à volta da preia-mar.",
+  tip_rain:"Chuva prevista: leva roupa impermeável e atenção às pedras escorregadias.",
+  tip_drag:"Se perderes peixe por partir a linha, alivia o travão (drag) do carreto antes de engrossar a linha.",
+  geoAsk:"A obter a tua localização…", geoNo:"Este navegador não dá acesso à localização. Escolhe a zona na lista.",
+  geoDenied:"Sem acesso à localização. Autoriza-a nas definições do navegador ou escolhe a zona na lista.",
+  geoFar:"Estás a {d} km da costa. Zona mais próxima: {z}.", geoOk:"Zona mais próxima: {z} ({d} km).",
+  foot:"Dados: Open-Meteo (CC BY 4.0) · Fotos: Wikipédia / Wikimedia Commons · Regras: DGRM. Confirma sempre as regras locais.",
+  regions:{N:"Norte",C:"Centro",L:"Lisboa",S:"Setúbal",A:"Alentejo",G:"Algarve",M:"Madeira",Z:"Açores"}
+},
+en:{
+  tagline:"Fishing forecast for the Portuguese coast", zoneLabel:"Fishing area", near:"Near me",
+  tabForecast:"Forecast", tabSpecies:"Species", tabGuide:"Guide",
+  loading:"Loading forecast for {z}…", updatedNow:"updated just now", updatedAgo:"updated {n} min ago",
+  errTitle:"Couldn't load the forecast.", errHint:"Check your internet connection and try again.", retry:"Try again",
+  today:"Today", tomorrow:"Tomorrow",
+  dayOver:"The day is nearly over", dayOverSub:"Pick tomorrow or another day above.",
+  v_danger:"Dangerous", v_exc:"Excellent", v_good:"Good day", v_ok:"Fair", v_weak:"Poor", v_bad:"Bad",
+  leadDanger:"Stay away from the shore today.", leadGo:"Worth going between {a} and {b}.", leadMaybe:"Fishable between {a} and {b}.", leadToday:" Only the hours left today count.",
+  bestWin:"Best window", altWin:"Alternative",
+  dangerLine:"Dangerous sea or wind for most of the day. Avoid exposed rocks and jetties.",
+  sunrise:"Sunrise", sunset:"Sunset", moon:"Moon",
+  hourly:"Hour by hour", tapBar:"tap a bar", lgScore:"Score", lgTide:"Tide", lgNight:"Night",
+  scoreOf:"score", wind:"Wind", gusts:"gusts", swell:"Swell", from:"from", tide:"Tide", rising:"Rising", falling:"Falling",
+  hiAt:"high tide at {t}", loAt:"low tide at {t}", seaTemp:"Sea water", air:"air", rain:"Rain", noRain:"no rain",
+  pressure:"Pressure", pDown:"falling", pUp:"rising", pStable:"steady",
+  tides:"Tides", atBar:"at the river mouth", atCoast:"on the coast", high:"High tide", low:"Low tide",
+  tideNote:"Height relative to mean sea level. Modelled, so times can be 20–40 min off near the shore.",
+  springNote:"Spring tides: bigger range and stronger currents.", neapNote:"Neap tides: smaller range.",
+  noMarine:"No sea data for this area.", noTides:"No tides calculated for this day.",
+  tipsTitle:"How to fish this day",
+  planB:"Plan B", planBSub:"nearby areas, same day", compare:"Compare nearby areas", comparing:"Comparing…",
+  planBHint:"There is no magic spot. If the sea is wrong here, it may be right 30 km away.", here:"here", noAlts:"No other areas within 100 km.",
+  legalMin:"Legal minimum", minShort:"minimum", bestMonths:"Best months", close:"Close", photo:"Photo",
+  inSeason:"in season", closedSeason:"closed",
+  spIntro:"The most common species in the selected area. Tap one to see where, with what bait and when.",
+  allSp:"All species", zoneSp:"This area",
+  spNote:"Minimum sizes: DGRM table of 30 Oct 2025 (mainland Portugal). Undersized fish must go straight back, even if dead.",
+  islandAlert:"<b>Regional rules.</b> In the Azores and Madeira, minimum sizes and limits are set by the regional government and may differ from the mainland values shown here. Check before keeping fish.",
+  sOnde:"Where", sIsco:"Bait", sTec:"Technique", sCond:"Conditions",
+  robaloAlert:"Since January 2026 every sea bass you keep must be logged in the <b>RecFishing</b> app.",
+  sargoPnsacvAlert:"Closed season 1–28 February for shore fishing inside the Southwest Alentejo and Vicentine Coast Natural Park.",
+  a_bathing:"<b>Bathing season.</b> Many lifeguarded beaches ban fishing during bathing hours. Check the local harbour master's notice (edital da capitania).",
+  a_pnsacv:"<b>Closed season for white and two-banded seabream</b> until 28 February for shore fishing in the Southwest Alentejo and Vicentine Coast Natural Park.",
+  a_pnsacvB:"<b>Closed season for ballan wrasse</b> (1 Mar – 31 May) in the Southwest Alentejo and Vicentine Coast Natural Park.",
+  a_arrabida:"<b>Arrábida Marine Park.</b> Fully and partially protected zones ban recreational fishing. Check the map before you go.",
+  a_berlengas:"<b>Berlengas Reserve.</b> The island and islets have their own fishing rules.",
+  a_tejo:"<b>Tagus:</b> max 2 rods and 3 hooks, and no fishing within 300 m of quays and terminals.",
+  a_sado:"<b>Sado:</b> max 2 rods and 3 hooks.",
+  a_river2:"<b>In this estuary</b> you may only use 2 rods at a time.",
+  a_island:"<b>Regional rules.</b> Check licence, sizes and limits with the Autonomous Region.",
+  moonNames:["New moon","Waxing crescent","First quarter","Waxing gibbous","Full moon","Waning gibbous","Last quarter","Waning crescent"],
+  dirs:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"],
+  f_windLight:"Light wind ({v} km/h {d})", f_windMod:"Moderate wind ({v} km/h {d})", f_windFresh:"Fresh wind ({v} km/h {d})",
+  f_windStrong:"Strong wind ({v} km/h {d})", f_windVery:"Very strong wind ({v} km/h)", f_gusts:"Gusts up to {v} km/h",
+  f_seaCalmEst:"Calm water ({h} m)", f_seaFlat:"Very calm sea ({h} m), little white water", f_seaFoam:"{h} m swell with white water",
+  f_sea:"{h} m swell", f_seaStrong:"Big swell ({h} m)", f_seaBig:"Heavy sea ({h} m)",
+  f_rainHeavy:"Heavy rain ({v} mm/h)", f_showers:"Showers",
+  f_pDownSlow:"Pressure falling slowly", f_pDownFast:"Pressure dropping fast", f_pUpFast:"Pressure rising fast",
+  f_slack:"Slack water at low tide", f_flood:"Incoming tide until high water at {t}", f_rising:"Tide rising", f_ebbStart:"Start of the ebb",
+  f_nearLow:"Close to low tide", f_ebbEst:"Ebb current",
+  f_dawn:"Dawn (sunrise {t})", f_dusk:"Dusk (sunset {t})", f_noon:"Bright midday sun",
+  f_spring:"Spring tides (new or full moon)", f_danger:"Dangerous: sea or wind too strong for the shore",
+  tip_flat:"Flat sea and clear water: fish can see everything. Fish light and fine, approach the rocks quietly and keep your shadow off the water. Dawn, dusk and night work best.",
+  tip_foam:"There's white water by the rocks, and that's where seabream and bass feed. Fish close in first, then cast further.",
+  tip_rough:"Choppy sea: shallow rocks get washed over. Look for deeper marks or sheltered corners where the foam reaches without sweeping the rock.",
+  tip_big:"Big sea: only high, deep marks well above the waterline. Watch the sea for a few minutes before climbing down. Wet rock means waves reach it.",
+  tip_north:"North wind ({v} km/h): south-facing coves and corners sheltered from the north are your best bet.",
+  tip_wind:"{d} wind ({v} km/h): pick a stretch of coast with land between you and the wind.",
+  tip_spring:"Spring tides: low water uncovers rocks, but the flood comes back fast. Don't get cut off.",
+  tip_estuary:"Estuary: fish the turn of the tide, when the current starts to run, and the hours around high water.",
+  tip_rain:"Rain forecast: bring waterproofs and watch for slippery rocks.",
+  tip_drag:"If fish keep breaking the line, loosen the reel's drag before going to a thicker line.",
+  geoAsk:"Getting your location…", geoNo:"This browser can't share your location. Pick an area from the list.",
+  geoDenied:"No access to your location. Allow it in your browser settings or pick an area from the list.",
+  geoFar:"You're {d} km from the coast. Nearest area: {z}.", geoOk:"Nearest area: {z} ({d} km).",
+  foot:"Data: Open-Meteo (CC BY 4.0) · Photos: Wikipedia / Wikimedia Commons · Rules: DGRM. Always check local rules.",
+  regions:{N:"North",C:"Centre",L:"Lisbon",S:"Setúbal",A:"Alentejo",G:"Algarve",M:"Madeira",Z:"Azores"}
+}};
+
+/* Guia (HTML por idioma) */
+const GUIDE = {
+pt:`
+<details open><summary>Antes de ir: licença e limites</summary><div class="gbody">
+  <h4>Licença</h4>
+  <p>Precisas de licença de pesca lúdica para pescar à cana no mar. Menores de 16 anos acompanhados por um titular não precisam.</p>
+  <div class="kv"><b>2 €</b><span>diária</span><b>4 €</b><span>mensal</span><b>8 €</b><span>anual</span></div>
+  <ul>
+    <li><b>Multibanco:</b> Pagamento de Serviços → Pagamentos ao Estado → Licença de Pesca Lúdica → Pesca Águas Marítimas e Salobras.</li>
+    <li><b>Online:</b> Portal Bmar da DGRM (também para estrangeiros e não residentes).</li>
+    <li>Não há papel. Para ver a licença, envia SMS com <b>UPLUD</b> para o 925 507 447 a partir do telemóvel registado.</li>
+  </ul>
+  <h4>Quanto podes levar</h4>
+  <ul>
+    <li><b>10 kg por dia</b> de peixe e cefalópodes, sem contar o exemplar maior. Atingido o limite, paras.</li>
+    <li>Mexilhão 3 kg · ostra 5 kg · outros organismos 2 kg · minhocas 0,5 L.</li>
+    <li>Peixe abaixo do tamanho mínimo volta logo ao mar, mesmo morto. Vê os tamanhos no separador Espécies.</li>
+    <li><b>Robalo:</b> desde janeiro de 2026 cada robalo que guardas tem de ser registado na app RecFishing.</li>
+  </ul>
+  <h4>Material</h4>
+  <ul>
+    <li>Até <b>3 canas</b> e <b>9 anzóis</b> no total.</li>
+    <li>Tejo e Sado: 2 canas e 3 anzóis. Cávado, Douro, Lima e Mondego: 2 canas.</li>
+    <li>Luz como chamariz só na pesca com toneira (lulas e chocos). Proibidos: gaffs de penhasco, drones e pesca elétrica.</li>
+  </ul>
+  <h4>Proibido pescar (lista parcial)</h4>
+  <p>Enguia, meros, lagosta e lavagante, raia-curva e raia-tairoga, vários tubarões, peixe-lua, cavalos-marinhos, salmão, sável e savelha, atum-rabilho.</p>
+  <h4>Defesos</h4>
+  <p>Sargo e safia de 1 a 28 de fevereiro, e bodião de 1 de março a 31 de maio, na pesca apeada no Parque Natural do Sudoeste Alentejano e Costa Vicentina.</p>
+  <h4>Coimas</h4>
+  <div class="kv"><b>200–2000 €</b><span>pescar sem licença</span><b>100–1000 €</b><span>peixe abaixo do mínimo, luz como chamariz, zonas ou distâncias proibidas</span></div>
+  <p>Além da coima, o material pode ser apreendido.</p>
+</div></details>
+
+<details><summary>Onde podes (e não podes) pescar</summary><div class="gbody">
+  <ul>
+    <li>Os sítios proibidos são poucos e têm <b>placas</b>. Se não há placa e não estás numa área protegida, em regra podes pescar.</li>
+    <li>Nunca a menos de <b>100 m</b> de portos de abrigo, docas, estaleiros, aquaculturas ou saídas de esgoto assinaladas. No Tejo, <b>300 m</b> de cais e terminais.</li>
+    <li>Evita pescar perto de descargas de esgoto, mesmo fora dos 100 m: o peixe pode ter bactérias.</li>
+    <li><b>Áreas protegidas</b> (Arrábida, Berlengas, Sudoeste Alentejano e Costa Vicentina, Litoral Norte) têm zonas onde a pesca lúdica é proibida ou limitada.</li>
+    <li><b>Época balnear:</b> em muitas praias vigiadas a pesca é proibida no horário de banhos. Cada capitania define as regras no seu edital, incluindo a pesca noturna em praias concessionadas.</li>
+    <li>Pode haver <b>interdições temporárias</b> por poluição. Em dúvida, liga para a capitania e pergunta se há edital recente. Ninguém te leva a mal por perguntares.</li>
+    <li>Guarda <b>5 m</b> de distância de outros pescadores, salvo acordo.</li>
+    <li>Respeita banhistas e surfistas: não lances para onde há gente na água, e afasta-te uns metros do pico se puderes.</li>
+  </ul>
+  <div class="links">
+    <a href="https://www.dgrm.pt/zonas-de-pesca" target="_blank" rel="noopener">Mapa de zonas e capitanias (DGRM)</a>
+    <a href="https://www.dgrm.pt/licenca-de-pesca-ludica" target="_blank" rel="noopener">Licença de pesca lúdica (DGRM)</a>
+    <a href="https://dgrm.pt/documents/20143/121104/FAQ-Pesca+Ludica+2026.pdf/586f6137-df78-25e7-e7ad-8a3dcc1f9ffc" target="_blank" rel="noopener">Perguntas frequentes da DGRM (2026, PDF)</a>
+    <a href="https://dgrm.pt/documents/20143/121101/Tabela+de+Tamanhos+M%C3%ADnimos+de+Captura+30-10-25.pdf/0395af29-7e6b-8fd8-4b8a-3e29c09226e4" target="_blank" rel="noopener">Tabela de tamanhos mínimos (DGRM, PDF)</a>
+    <a href="https://www.hidrografico.pt/" target="_blank" rel="noopener">Marés oficiais (Instituto Hidrográfico)</a>
+    <a href="https://www.icnf.pt/pesca/pescaludicaedesportiva" target="_blank" rel="noopener">Pesca em rios e barragens (ICNF, outra licença)</a>
+    <a href="https://pescador.azores.gov.pt/" target="_blank" rel="noopener">Açores: portal do pescador</a>
+  </div>
+</div></details>
+
+<details><summary>Segurança</summary><div class="gbody">
+  <ul>
+    <li>Chega ao pesqueiro e <b>observa o mar uns minutos</b> antes de descer. Pedra molhada quer dizer que as ondas lá chegam. Pedra seca não garante que não cheguem.</li>
+    <li>Com ondulação acima de 2,5 m ou período longo (ondas que chegam espaçadas e com força), fica longe das pedras baixas e dos molhes.</li>
+    <li>Não vás para pesqueiros de acesso difícil sem experiência. É fácil ficar encurralado pela maré, sobretudo em marés vivas.</li>
+    <li>Cuidado com as arribas: caem pedras de cima e as de baixo podem soltar-se.</li>
+    <li>Calçado com boa aderência, telemóvel carregado e alguém que saiba onde estás. Emergência: <b>112</b>.</li>
+    <li>Quando ferras um peixe grande, não te esqueças de onde estás. Nenhum peixe vale uma queda.</li>
+    <li>Colete de salvação não é obrigatório em terra, mas é recomendado.</li>
+  </ul>
+</div></details>
+
+<details><summary>Dicas para apanhar mais peixe</summary><div class="gbody">
+  <ol>
+    <li><b>Não subestimes o peixe.</b> Ouve e sente vibrações muito melhor do que nós. Chega devagar, sem barulho e sem projetar sombra na água, sobretudo com água limpa. Grupos grandes e barulhentos espantam o peixe.</li>
+    <li><b>Pesca perto antes de lançar longe.</b> Sargos, douradas e robalos comem junto às pedras e na espuma da rebentação. Começa aí. Lançar logo para longe passa a isca por cima do peixe e espanta-o.</li>
+    <li><b>Pesca o mais fino e leve possível.</b> Linha mais fina engana mais peixe, sobretudo com água limpa. Para não perder o peixe, ajusta o travão (drag) do carreto. Para tirar peixe grande da água usa camaroeiro (xalavar) ou rabeca.</li>
+    <li><b>Não percas o objetivo.</b> Usa o isco que o peixe quer, não o mais fácil de iscar. Pesca onde o peixe está, não onde é mais confortável. A chumbada mais leve que chegue ao sítio.</li>
+    <li><b>Não há pesqueiro milagroso.</b> Um pesqueiro fundo precisa de mar grande para fazer espuma. Com mar pequeno, procura sítios mais rasos. O mesmo sítio pode ser ótimo hoje e inútil amanhã.</li>
+    <li><b>Tem um plano B.</b> Conhece bem várias zonas perto de ti, incluindo cantos abrigados do vento norte. Se o mar não está bom, muda. Usa o Plano B na Previsão e as vistas de satélite para escolher pedras novas.</li>
+  </ol>
+</div></details>
+
+<details><summary>Açores e Madeira</summary><div class="gbody">
+  <p>Nas regiões autónomas a pesca lúdica segue legislação regional: licença, tamanhos mínimos, limites e espécies proibidas podem ser diferentes do continente. A previsão de meteo, mar e marés funciona igual, mas os tamanhos nesta app são os do continente. Confirma sempre com a Direção Regional das Pescas de cada região.</p>
+</div></details>
+
+<details><summary>Como funciona a pontuação</summary><div class="gbody">
+  <p>Cada hora começa em 50 pontos e sobe ou desce conforme:</p>
+  <ul>
+    <li><b>Vento:</b> fraco ajuda, forte e rajadas tiram pontos.</li>
+    <li><b>Ondulação:</b> na costa aberta o ideal é 0,5–1,3 m (mar com espuma). Mar parado ou mar grosso tiram pontos. Nos estuários conta menos.</li>
+    <li><b>Maré:</b> a enchente até à preia-mar e o início da vazante dão pontos. A água parada na baixa-mar tira.</li>
+    <li><b>Luz:</b> amanhecer e entardecer (90 min à volta do nascer e pôr do sol) dão pontos. Sol forte ao meio-dia tira.</li>
+    <li><b>Lua:</b> marés vivas (lua nova ou cheia) dão um pequeno bónus.</li>
+    <li><b>Pressão e chuva:</b> pressão a descer devagar ajuda. Chuva forte ou pressão a mudar depressa tiram pontos.</li>
+  </ul>
+  <p>Mar acima de 3,5 m, ou acima de 2,5 m com ondas de período longo, ou rajadas acima de 65 km/h, marcam a hora como <b>Perigosa</b>. A nota do dia é a média do melhor período de 3 horas.</p>
+  <p>É uma estimativa para ajudar a decidir, não uma garantia. Quem conhece o pesqueiro sabe mais.</p>
+</div></details>
+
+<details><summary>Sobre a app</summary><div class="gbody">
+  <p>Projeto aberto e gratuito. Dados meteorológicos e de mar da Open-Meteo, fotos da Wikipédia, regras da DGRM. Funciona no telemóvel: no navegador, escolhe "Adicionar ao ecrã principal" para a instalar.</p>
+  <p>Encontraste um erro ou falta uma zona? Abre uma "issue" no GitHub do projeto.</p>
+</div></details>`,
+en:`
+<details open><summary>Before you go: licence and limits</summary><div class="gbody">
+  <h4>Licence</h4>
+  <p>You need a recreational fishing licence (licença de pesca lúdica) to fish with a rod in the sea. Under-16s with a licence holder don't need one.</p>
+  <div class="kv"><b>€2</b><span>day</span><b>€4</b><span>month</span><b>€8</b><span>year</span></div>
+  <ul>
+    <li><b>Online:</b> DGRM's Portal Bmar, open to foreigners and non-residents, paid by bank transfer.</li>
+    <li><b>Multibanco ATM</b> (Portuguese cards only): Pagamento de Serviços → Pagamentos ao Estado → Licença de Pesca Lúdica → Pesca Águas Marítimas e Salobras.</li>
+    <li>There's no paper licence. Text <b>UPLUD</b> to 925 507 447 from the registered phone to see it.</li>
+  </ul>
+  <h4>How much you can keep</h4>
+  <ul>
+    <li><b>10 kg per day</b> of fish and cephalopods, not counting the largest specimen. Once you reach it, stop.</li>
+    <li>Mussels 3 kg · oysters 5 kg · other organisms 2 kg · worms 0.5 L.</li>
+    <li>Undersized fish go straight back, even if dead. Sizes are in the Species tab.</li>
+    <li><b>Sea bass:</b> since January 2026 every bass you keep must be logged in the RecFishing app.</li>
+  </ul>
+  <h4>Tackle</h4>
+  <ul>
+    <li>Up to <b>3 rods</b> and <b>9 hooks</b> in total.</li>
+    <li>Tagus and Sado: 2 rods and 3 hooks. Cávado, Douro, Lima and Mondego: 2 rods.</li>
+    <li>Lights as attractors only when squid jigging. Banned: cliff gaffs, drones and electric fishing.</li>
+  </ul>
+  <h4>Protected species (partial list)</h4>
+  <p>Eel, groupers, spiny and European lobster, undulate and blonde ray, several sharks, sunfish, seahorses, salmon, shads, bluefin tuna.</p>
+  <h4>Closed seasons</h4>
+  <p>White and two-banded seabream 1–28 February, and ballan wrasse 1 March – 31 May, for shore fishing in the Southwest Alentejo and Vicentine Coast Natural Park.</p>
+  <h4>Fines</h4>
+  <div class="kv"><b>€200–2000</b><span>fishing without a licence</span><b>€100–1000</b><span>undersized fish, light attractors, banned areas or distances</span></div>
+  <p>Your gear can also be seized.</p>
+</div></details>
+
+<details><summary>Where you can (and can't) fish</summary><div class="gbody">
+  <ul>
+    <li>Banned spots are few and <b>signposted</b>. With no sign and outside protected areas, you can usually fish.</li>
+    <li>Never within <b>100 m</b> of harbours, docks, shipyards, fish farms or marked sewage outfalls. On the Tagus, <b>300 m</b> from quays and terminals.</li>
+    <li>Stay well away from sewage outfalls anyway: fish there can carry bacteria.</li>
+    <li><b>Protected areas</b> (Arrábida, Berlengas, Southwest Alentejo and Vicentine Coast, North Coast) have zones where fishing is banned or limited.</li>
+    <li><b>Bathing season:</b> many lifeguarded beaches ban fishing during bathing hours. Each harbour master (capitania) sets the rules in a public notice (edital), including night fishing on concession beaches.</li>
+    <li>Temporary bans happen after pollution events. If in doubt, phone the local capitania and ask about recent notices.</li>
+    <li>Keep <b>5 m</b> from other anglers unless agreed.</li>
+    <li>Respect swimmers and surfers: don't cast where people are in the water.</li>
+  </ul>
+  <div class="links">
+    <a href="https://www.dgrm.pt/zonas-de-pesca" target="_blank" rel="noopener">Fishing zones and harbour masters map (DGRM)</a>
+    <a href="https://www.dgrm.pt/licenca-de-pesca-ludica" target="_blank" rel="noopener">Recreational licence (DGRM)</a>
+    <a href="https://www.dgrm.pt/documents/20143/100233/texto+para+o+site+para+pedidos+de+emiss%C3%A3o+de+licen%C3%A7a+de+pesca+ludica_ING....pdf/64ebaed2-eeaa-cec3-4cbf-fcdb30080791" target="_blank" rel="noopener">How to apply for a licence, in English (DGRM, PDF)</a>
+    <a href="https://dgrm.pt/documents/20143/121101/Tabela+de+Tamanhos+M%C3%ADnimos+de+Captura+30-10-25.pdf/0395af29-7e6b-8fd8-4b8a-3e29c09226e4" target="_blank" rel="noopener">Minimum sizes table (DGRM, PDF)</a>
+    <a href="https://www.hidrografico.pt/" target="_blank" rel="noopener">Official tide tables (Instituto Hidrográfico)</a>
+    <a href="https://pescador.azores.gov.pt/" target="_blank" rel="noopener">Azores fishing portal</a>
+  </div>
+</div></details>
+
+<details><summary>Safety</summary><div class="gbody">
+  <ul>
+    <li><b>Watch the sea for a few minutes</b> before climbing down. Wet rock means waves reach it. Dry rock doesn't mean they won't.</li>
+    <li>With swell above 2.5 m or a long period (widely spaced, powerful waves), keep off low rocks and jetties.</li>
+    <li>Don't try hard-to-reach marks without experience. It's easy to get cut off by the tide, especially on spring tides.</li>
+    <li>Cliffs shed rocks from above, and footholds can give way.</li>
+    <li>Grippy footwear, a charged phone and someone who knows where you are. Emergency: <b>112</b>.</li>
+    <li>When you hook a big fish, remember where you're standing. No fish is worth a fall.</li>
+    <li>A life jacket isn't mandatory from the shore, but it's recommended.</li>
+  </ul>
+</div></details>
+
+<details><summary>Tips to catch more</summary><div class="gbody">
+  <ol>
+    <li><b>Don't underestimate the fish.</b> They pick up sound and vibration far better than we do. Approach slowly and quietly and keep your shadow off the water, especially when it's clear. Big, noisy groups scare fish away.</li>
+    <li><b>Fish close before you cast far.</b> Seabream and bass feed right by the rocks and in the surf foam. Start there. Casting far first drags your rig over the fish and spooks them.</li>
+    <li><b>Fish as light and fine as you can.</b> Thinner line fools more fish, especially in clear water. Set the reel's drag so you don't lose them, and land big fish with a landing net.</li>
+    <li><b>Keep the goal in mind.</b> Use the bait the fish want, not the one that's easiest to hook. Fish where the fish are, not where it's comfortable. Use the lightest weight that gets there.</li>
+    <li><b>There's no magic spot.</b> A deep mark needs a big sea to make white water. With a small sea, go shallower. The same spot can be great today and dead tomorrow.</li>
+    <li><b>Have a plan B.</b> Know several areas near you well, including corners sheltered from the north wind. If the sea is wrong, move. Use Plan B in the Forecast and satellite maps to find new rocks.</li>
+  </ol>
+</div></details>
+
+<details><summary>Azores and Madeira</summary><div class="gbody">
+  <p>The autonomous regions have their own recreational fishing laws: licence, minimum sizes, limits and protected species can differ from the mainland. The weather, sea and tide forecast works the same, but the sizes in this app are mainland values. Always check with each region's fisheries department.</p>
+</div></details>
+
+<details><summary>How the score works</summary><div class="gbody">
+  <p>Each hour starts at 50 points and goes up or down with:</p>
+  <ul>
+    <li><b>Wind:</b> light helps, strong wind and gusts cost points.</li>
+    <li><b>Swell:</b> on the open coast 0.5–1.3 m (white water) is ideal. A flat or heavy sea costs points. It matters less in estuaries.</li>
+    <li><b>Tide:</b> the flood up to high water and the start of the ebb add points. Slack low water costs points.</li>
+    <li><b>Light:</b> dawn and dusk (90 min around sunrise and sunset) add points. Bright midday sun costs points.</li>
+    <li><b>Moon:</b> spring tides (new or full moon) give a small bonus.</li>
+    <li><b>Pressure and rain:</b> slowly falling pressure helps. Heavy rain or fast pressure changes cost points.</li>
+  </ul>
+  <p>Seas above 3.5 m, above 2.5 m with a long period, or gusts above 65 km/h mark the hour as <b>Dangerous</b>. The day's score is the average of its best 3-hour window.</p>
+  <p>It's an estimate to help you decide, not a promise. Local knowledge beats any forecast.</p>
+</div></details>
+
+<details><summary>About</summary><div class="gbody">
+  <p>Free, open-source project. Weather and sea data from Open-Meteo, photos from Wikipedia, rules from DGRM (Portugal's fisheries authority). Works on your phone: use "Add to Home Screen" in your browser to install it.</p>
+  <p>Found a mistake or missing area? Open an issue on the project's GitHub.</p>
+</div></details>`};
+
+/* =====================================================================
+   ESPÉCIES (tamanhos: tabela DGRM 30-10-2025)
+   ===================================================================== */
+const SPECIES = {
+  robalo:{pt:"Robalo",en:"European sea bass",sci:"Dicentrarchus labrax",min:"36 cm",peak:[10,11,12,1,2,3],
+    onde:{pt:"Praias com rebentação, rochas, barras e estuários.",en:"Surf beaches, rocks, river mouths and estuaries."},
+    isco:{pt:"Casulo, gamba viva, choco, sardinha; amostras de superfície e vinis.",en:"Ragworm, live prawn, cuttlefish, sardine; surface lures and soft plastics."},
+    tec:{pt:"Surfcasting ou spinning ao amanhecer e ao anoitecer.",en:"Surfcasting or spinning at dawn and dusk."},
+    cond:{pt:"Mar com espuma (0,5–1,5 m), água ligeiramente turva, enchente e marés vivas.",en:"White water (0.5–1.5 m), slightly coloured water, rising tide and spring tides."}},
+  sargo:{pt:"Sargo-legítimo",en:"White seabream",sci:"Diplodus sargus",min:"17 cm",peak:[10,11,12,1,2,3,4],pnsacv:true,
+    onde:{pt:"Rochas batidas pela ondulação, molhes e pontões.",en:"Wave-washed rocks, jetties and piers."},
+    isco:{pt:"Casulo, ganso, mexilhão, caranguejo, camarão.",en:"Ragworm, lugworm, mussel, crab, shrimp."},
+    tec:{pt:"Boia ou fundo leve encostado à pedra.",en:"Float or light ledgering tight to the rock."},
+    cond:{pt:"Mar com espuma branca e enchente. Melhor no outono e inverno.",en:"White water and a rising tide. Best in autumn and winter."}},
+  safia:{pt:"Safia",en:"Two-banded seabream",sci:"Diplodus vulgaris",min:"17 cm",peak:[6,7,8,9,10],pnsacv:true,
+    onde:{pt:"Rochas e praias junto a pedra; anda em cardume.",en:"Rocks and beaches near rock; moves in shoals."},
+    isco:{pt:"Casulo, ganso, camarão; engodo de pão com sardinha.",en:"Ragworm, lugworm, shrimp; bread and sardine groundbait."},
+    tec:{pt:"Boia ou fundo leve.",en:"Float or light ledgering."},
+    cond:{pt:"Mar calmo a moderado, água limpa.",en:"Calm to moderate sea, clear water."}},
+  sargoBicudo:{pt:"Sargo-bicudo",en:"Sharpsnout seabream",sci:"Diplodus puntazzo",min:"22 cm",peak:[9,10,11,12],
+    onde:{pt:"Rochas fundas, molhes e pesqueiros com algas.",en:"Deep rocks, jetties and weedy marks."},
+    isco:{pt:"Mexilhão, caranguejo, lingueirão.",en:"Mussel, crab, razor clam."},
+    tec:{pt:"Fundo leve ou boia pesada junto à rocha.",en:"Light ledgering or a heavy float by the rock."},
+    cond:{pt:"Outono, com mar mexido mas pescável.",en:"Autumn, with a lively but fishable sea."}},
+  dourada:{pt:"Dourada",en:"Gilthead seabream",sci:"Sparus aurata",min:"19 cm",peak:[5,6,7,8,9,10],
+    onde:{pt:"Rias, estuários e praias de areia perto de mexilhoeiros.",en:"Lagoons, estuaries and sandy beaches near mussel beds."},
+    isco:{pt:"Caranguejo, mexilhão, casulo, lingueirão.",en:"Crab, mussel, ragworm, razor clam."},
+    tec:{pt:"Fundo com chumbada corrida e linha fina.",en:"Running ledger with fine line."},
+    cond:{pt:"Água quente e mar calmo. Final do verão e outono são os meses fortes.",en:"Warm water and calm sea. Late summer and autumn are best."}},
+  tainha:{pt:"Tainha",en:"Grey mullet",sci:"Mugil cephalus",min:"20 cm",peak:[3,4,5,6,7,8,9,10,11],
+    onde:{pt:"Docas, portos, marinas e estuários (respeita os 100 m de portos e docas).",en:"Harbours, marinas and estuaries (keep 100 m from ports and docks)."},
+    isco:{pt:"Pão, massa de pão, pedaços de peixe.",en:"Bread, bread paste, fish strips."},
+    tec:{pt:"Boia fina com engodo de pão.",en:"Light float with bread groundbait."},
+    cond:{pt:"Água calma. Dá quase todo o ano.",en:"Calm water. Bites most of the year."}},
+  linguado:{pt:"Linguado",en:"Common sole",sci:"Solea solea",min:"24 cm",peak:[3,4,5,6,7,8,9,10],
+    onde:{pt:"Fundos de areia e lodo, estuários e praias.",en:"Sand and mud bottoms, estuaries and beaches."},
+    isco:{pt:"Minhoca, casulo, ganso.",en:"Worms: ragworm, lugworm."},
+    tec:{pt:"Fundo, de preferência à noite.",en:"Bottom fishing, ideally at night."},
+    cond:{pt:"Mar calmo a moderado, água turva ou de noite.",en:"Calm to moderate sea, coloured water or night."}},
+  cavala:{pt:"Cavala",en:"Atlantic chub mackerel",sci:"Scomber colias",min:"20 cm",peak:[5,6,7,8,9,10],
+    onde:{pt:"Costa aberta e molhes; anda em cardume.",en:"Open coast and jetties; moves in shoals."},
+    isco:{pt:"Tiras de peixe, sabiki, colheres pequenas.",en:"Fish strips, sabiki rigs, small spoons."},
+    tec:{pt:"Spinning ligeiro, sabiki ou boia.",en:"Light spinning, sabiki or float."},
+    cond:{pt:"Água quente e limpa, de manhã cedo.",en:"Warm, clear water, early morning."}},
+  carapau:{pt:"Carapau",en:"Horse mackerel",sci:"Trachurus trachurus",min:"15 cm",peak:[5,6,7,8,9,10,11],
+    onde:{pt:"Molhes e zonas com luz à noite.",en:"Jetties and lit areas at night."},
+    isco:{pt:"Sabiki, tiras de peixe.",en:"Sabiki, fish strips."},
+    tec:{pt:"Sabiki ou boia, ao fim da tarde e à noite.",en:"Sabiki or float, evening and night."},
+    cond:{pt:"Mar calmo, fim de verão e outono.",en:"Calm sea, late summer and autumn."}},
+  corvina:{pt:"Corvina",en:"Meagre",sci:"Argyrosomus regius",min:"42 cm",peak:[4,5,6,7,8,9],
+    onde:{pt:"Estuários do Tejo, Sado e Guadiana, barras e praias próximas.",en:"Tagus, Sado and Guadiana estuaries, river mouths and nearby beaches."},
+    isco:{pt:"Choco, lula, peixe vivo, caranguejo.",en:"Cuttlefish, squid, live fish, crab."},
+    tec:{pt:"Fundo pesado ou amostras de fundo.",en:"Heavy ledgering or bottom lures."},
+    cond:{pt:"Primavera e verão, marés vivas, de noite.",en:"Spring and summer, spring tides, at night."}},
+  choco:{pt:"Choco",en:"Common cuttlefish",sci:"Sepia officinalis",min:"10 cm",minNote:{pt:"medido no manto",en:"mantle length"},peak:[2,3,4,5,6],
+    onde:{pt:"Estuários e rias com fundo de areia e algas.",en:"Estuaries and lagoons with sand and weed."},
+    isco:{pt:"Toneiras (amostras para chocos e lulas).",en:"Squid jigs."},
+    tec:{pt:"Toneira trabalhada devagar junto ao fundo.",en:"Jig worked slowly near the bottom."},
+    cond:{pt:"Primavera, água limpa e corrente fraca.",en:"Spring, clear water and slack current."}},
+  lula:{pt:"Lula",en:"European squid",sci:"Loligo vulgaris",min:"10 cm",minNote:{pt:"medido no manto",en:"mantle length"},peak:[10,11,12,1,2],
+    onde:{pt:"Molhes e praias com luz à noite.",en:"Jetties and lit beaches at night."},
+    isco:{pt:"Toneiras.",en:"Squid jigs."},
+    tec:{pt:"Toneira à noite junto a zonas iluminadas (luz como chamariz só é permitida com toneira).",en:"Jig at night near lights (light attractors are only allowed when jigging)."},
+    cond:{pt:"Noites de mar calmo no outono e inverno.",en:"Calm nights in autumn and winter."}},
+  polvo:{pt:"Polvo",en:"Common octopus",sci:"Octopus vulgaris",min:"750 g",peak:[9,10,11,12,1,2,3,4],
+    onde:{pt:"Fundos rochosos, buracos e pontões.",en:"Rocky bottoms, holes and piers."},
+    isco:{pt:"Caranguejo ou amostra própria para polvo.",en:"Crab or octopus lure."},
+    tec:{pt:"Amostra de polvo a partir de molhes e rochas.",en:"Octopus lure from jetties and rocks."},
+    cond:{pt:"Mar calmo e água limpa. O mínimo é por peso, não por comprimento.",en:"Calm sea and clear water. The minimum is by weight, not length."}},
+  faneca:{pt:"Faneca",en:"Pouting",sci:"Trisopterus luscus",min:"17 cm",peak:[10,11,12,1,2,3,4],
+    onde:{pt:"Fundos de areia junto a pedra, molhes.",en:"Sand near rock, jetties."},
+    isco:{pt:"Casulo, ganso, tiras de sardinha.",en:"Worms, sardine strips."},
+    tec:{pt:"Fundo.",en:"Bottom fishing."},
+    cond:{pt:"Outono e inverno, sobretudo à noite.",en:"Autumn and winter, especially at night."}},
+  pargo:{pt:"Pargo",en:"Red porgy",sci:"Pagrus pagrus",min:"20 cm",peak:[5,6,7,8,9,10],
+    onde:{pt:"Fundos rochosos mais fundos; pedra funda ou embarcação.",en:"Deeper rocky ground; deep rock marks or boat."},
+    isco:{pt:"Lula, choco, caranguejo.",en:"Squid, cuttlefish, crab."},
+    tec:{pt:"Fundo ou jigging.",en:"Bottom fishing or jigging."},
+    cond:{pt:"Verão e início do outono.",en:"Summer and early autumn."}},
+  besugo:{pt:"Besugo",en:"Axillary seabream",sci:"Pagellus acarne",min:"18 cm",peak:[3,4,5,6,7,8,9,10],
+    onde:{pt:"Fundos mistos de areia e rocha.",en:"Mixed sand and rock."},
+    isco:{pt:"Casulo, ganso, lula.",en:"Worms, squid."},
+    tec:{pt:"Fundo.",en:"Bottom fishing."},
+    cond:{pt:"Mar calmo, da primavera ao outono.",en:"Calm sea, spring to autumn."}},
+  bica:{pt:"Bica",en:"Common pandora",sci:"Pagellus erythrinus",min:"15 cm",peak:[4,5,6,7,8,9,10],
+    onde:{pt:"Fundos rochosos e de cascalho.",en:"Rocky and gravel bottoms."},
+    isco:{pt:"Casulo, ganso, lula.",en:"Worms, squid."},
+    tec:{pt:"Fundo.",en:"Bottom fishing."},
+    cond:{pt:"Mar calmo, água limpa.",en:"Calm sea, clear water."}},
+  salmonete:{pt:"Salmonete",en:"Striped red mullet",sci:"Mullus surmuletus",min:"18 cm",peak:[5,6,7,8,9,10],
+    onde:{pt:"Fundos de areia e cascalho perto de pedra.",en:"Sand and gravel near rock."},
+    isco:{pt:"Minhoca, casulo.",en:"Worms."},
+    tec:{pt:"Fundo leve.",en:"Light ledgering."},
+    cond:{pt:"Verão e outono, mar calmo.",en:"Summer and autumn, calm sea."}},
+  solha:{pt:"Solha-da-pedra",en:"European flounder",sci:"Platichthys flesus",min:"22 cm",peak:[11,12,1,2,3,4],
+    onde:{pt:"Estuários e rias com fundo de lodo.",en:"Muddy estuaries and lagoons."},
+    isco:{pt:"Minhoca, casulo.",en:"Worms."},
+    tec:{pt:"Fundo.",en:"Bottom fishing."},
+    cond:{pt:"Inverno e início da primavera.",en:"Winter and early spring."}}
+};
+
+/* =====================================================================
+   ZONAS — lat/lon: terra (meteo); m: [lat,lon] ponto no mar; t: tipo; f: avisos
+   ===================================================================== */
+const CO = ["robalo","sargo","safia","faneca","cavala","carapau","linguado","tainha"];
+const ZONES = [
+  {id:"caminha",r:"N",n:"Caminha / Moledo",lat:41.85,lon:-8.86,m:[41.85,-8.93],sp:["robalo","sargo","faneca","solha","linguado","tainha","cavala"],f:["river2"]},
+  {id:"viana",r:"N",n:"Viana do Castelo",lat:41.69,lon:-8.84,m:[41.69,-8.92],sp:CO,f:["river2"]},
+  {id:"esposende",r:"N",n:"Esposende / Apúlia",lat:41.53,lon:-8.79,m:[41.53,-8.87],sp:CO},
+  {id:"povoa",r:"N",n:"Póvoa de Varzim / Vila do Conde",lat:41.37,lon:-8.76,m:[41.37,-8.83],sp:CO},
+  {id:"porto",r:"N",n:"Porto / Matosinhos / Leça",lat:41.18,lon:-8.69,m:[41.18,-8.76],sp:["robalo","sargo","safia","faneca","cavala","carapau","tainha","linguado","polvo"],f:["river2"]},
+  {id:"espinho",r:"N",n:"Espinho / Granja",lat:41.0,lon:-8.65,m:[41.0,-8.72],sp:["robalo","sargo","faneca","linguado","cavala","carapau"]},
+  {id:"aveiro",r:"C",n:"Aveiro / Barra / Costa Nova",lat:40.64,lon:-8.74,m:[40.64,-8.81],t:"e",sp:["robalo","dourada","linguado","solha","tainha","choco","sargo","corvina"]},
+  {id:"mira",r:"C",n:"Mira / Tocha",lat:40.43,lon:-8.80,m:[40.43,-8.87],sp:["robalo","linguado","faneca","sargo","cavala","carapau"]},
+  {id:"figueira",r:"C",n:"Figueira da Foz / Buarcos",lat:40.15,lon:-8.86,m:[40.15,-8.93],sp:["robalo","sargo","safia","linguado","faneca","cavala","carapau","tainha"],f:["river2"]},
+  {id:"pedrogao",r:"C",n:"Pedrógão / São Pedro de Moel",lat:39.78,lon:-9.02,m:[39.78,-9.09],sp:["robalo","sargo","safia","faneca","linguado","cavala"]},
+  {id:"nazare",r:"C",n:"Nazaré / São Martinho do Porto",lat:39.60,lon:-9.07,m:[39.60,-9.14],sp:["robalo","sargo","safia","faneca","cavala","carapau","pargo","choco"]},
+  {id:"peniche",r:"C",n:"Peniche / Baleal",lat:39.36,lon:-9.38,m:[39.36,-9.45],sp:["sargo","safia","sargoBicudo","robalo","pargo","besugo","polvo","cavala","carapau","faneca"],f:["berlengas"]},
+  {id:"santacruz",r:"C",n:"Santa Cruz / Areia Branca",lat:39.13,lon:-9.38,m:[39.13,-9.45],sp:["robalo","sargo","safia","faneca","linguado","polvo"]},
+  {id:"ericeira",r:"L",n:"Ericeira",lat:38.96,lon:-9.42,m:[38.96,-9.48],sp:["sargo","safia","sargoBicudo","robalo","polvo","cavala","faneca"]},
+  {id:"sintra",r:"L",n:"Sintra / Magoito / Cabo da Roca",lat:38.82,lon:-9.47,m:[38.82,-9.53],sp:["sargo","safia","sargoBicudo","robalo","polvo","pargo","faneca"]},
+  {id:"cascais",r:"L",n:"Cascais / Guincho",lat:38.70,lon:-9.42,m:[38.67,-9.47],sp:["robalo","sargo","safia","sargoBicudo","dourada","cavala","lula","choco","polvo"]},
+  {id:"oeiras",r:"L",n:"Oeiras / Carcavelos / Paço de Arcos",lat:38.68,lon:-9.31,m:[38.65,-9.31],sp:["robalo","sargo","safia","dourada","corvina","choco","lula","tainha"]},
+  {id:"tejo",r:"L",n:"Lisboa / Estuário do Tejo",lat:38.775,lon:-9.09,m:[38.66,-9.27],t:"e",sp:["robalo","dourada","corvina","tainha","linguado","choco","solha"],f:["tejo"]},
+  {id:"caparica",r:"L",n:"Costa da Caparica / Fonte da Telha",lat:38.62,lon:-9.22,m:[38.62,-9.29],sp:["robalo","dourada","corvina","linguado","sargo","cavala","choco"]},
+  {id:"espichel",r:"S",n:"Lagoa de Albufeira / Cabo Espichel",lat:38.48,lon:-9.18,m:[38.48,-9.25],sp:["robalo","sargo","safia","sargoBicudo","dourada","pargo","polvo"]},
+  {id:"sesimbra",r:"S",n:"Sesimbra / Arrábida",lat:38.44,lon:-9.10,m:[38.40,-9.10],sp:["sargo","safia","dourada","robalo","pargo","besugo","salmonete","lula","choco","polvo"],f:["arrabida"]},
+  {id:"setubal",r:"S",n:"Setúbal / Sado / Tróia",lat:38.49,lon:-8.89,m:[38.44,-8.92],t:"e",sp:["dourada","robalo","corvina","choco","linguado","tainha","sargo"],f:["sado","arrabida"]},
+  {id:"comporta",r:"S",n:"Comporta / Melides",lat:38.25,lon:-8.80,m:[38.25,-8.87],sp:["robalo","dourada","corvina","linguado","sargo","cavala"]},
+  {id:"sines",r:"A",n:"Sines / Porto Covo",lat:37.95,lon:-8.87,m:[37.95,-8.93],sp:["sargo","safia","sargoBicudo","robalo","dourada","polvo","cavala","carapau"],f:["pnsacv"]},
+  {id:"milfontes",r:"A",n:"Vila Nova de Milfontes",lat:37.72,lon:-8.79,m:[37.72,-8.86],sp:["sargo","robalo","dourada","safia","sargoBicudo","polvo","corvina"],f:["pnsacv"]},
+  {id:"zambujeira",r:"A",n:"Zambujeira do Mar / Odeceixe",lat:37.50,lon:-8.79,m:[37.50,-8.86],sp:["sargo","safia","sargoBicudo","robalo","polvo","pargo"],f:["pnsacv"]},
+  {id:"aljezur",r:"G",n:"Aljezur / Arrifana / Bordeira",lat:37.29,lon:-8.87,m:[37.29,-8.94],sp:["sargo","sargoBicudo","safia","robalo","pargo","polvo","cavala"],f:["pnsacv"]},
+  {id:"sagres",r:"G",n:"Sagres / Cabo de São Vicente",lat:37.01,lon:-8.94,m:[36.97,-8.95],sp:["sargo","sargoBicudo","safia","pargo","besugo","bica","salmonete","cavala","polvo"],f:["pnsacv"]},
+  {id:"lagos",r:"G",n:"Lagos / Luz / Burgau",lat:37.08,lon:-8.67,m:[37.04,-8.67],sp:["dourada","sargo","safia","robalo","choco","lula","polvo","cavala","bica","salmonete"]},
+  {id:"portimao",r:"G",n:"Portimão / Ferragudo / Carvoeiro",lat:37.11,lon:-8.53,m:[37.07,-8.53],sp:["dourada","sargo","safia","robalo","choco","lula","polvo","cavala","bica"]},
+  {id:"albufeira",r:"G",n:"Albufeira / Armação de Pêra",lat:37.08,lon:-8.25,m:[37.04,-8.25],sp:["dourada","sargo","safia","robalo","polvo","lula","salmonete","bica"]},
+  {id:"quarteira",r:"G",n:"Quarteira / Vilamoura",lat:37.07,lon:-8.10,m:[37.03,-8.10],sp:["dourada","robalo","sargo","linguado","choco","polvo","cavala"]},
+  {id:"faro",r:"G",n:"Faro / Olhão / Ria Formosa",lat:37.00,lon:-7.93,m:[36.95,-7.89],t:"e",sp:["dourada","robalo","choco","polvo","linguado","tainha","salmonete","corvina"]},
+  {id:"tavira",r:"G",n:"Tavira / Vila Real de Santo António",lat:37.12,lon:-7.65,m:[37.07,-7.62],t:"e",sp:["dourada","robalo","corvina","choco","polvo","linguado","tainha"]},
+  {id:"funchal",r:"M",n:"Funchal / Câmara de Lobos",lat:32.64,lon:-16.92,m:[32.61,-16.92],tz:"Atlantic/Madeira",isl:true,sp:["sargo","safia","cavala","carapau","lula","polvo","pargo","bica","salmonete"]},
+  {id:"machico",r:"M",n:"Machico / Caniçal",lat:32.72,lon:-16.76,m:[32.70,-16.72],tz:"Atlantic/Madeira",isl:true,sp:["sargo","safia","cavala","carapau","lula","polvo","bica"]},
+  {id:"moniz",r:"M",n:"Porto Moniz / São Vicente",lat:32.87,lon:-17.16,m:[32.90,-17.16],tz:"Atlantic/Madeira",isl:true,sp:["sargo","safia","sargoBicudo","cavala","carapau","polvo"]},
+  {id:"portosanto",r:"M",n:"Porto Santo",lat:33.06,lon:-16.34,m:[33.02,-16.34],tz:"Atlantic/Madeira",isl:true,sp:["sargo","safia","cavala","carapau","lula","polvo","bica","salmonete"]},
+  {id:"pdelgada",r:"Z",n:"São Miguel / Ponta Delgada",lat:37.74,lon:-25.67,m:[37.70,-25.67],tz:"Atlantic/Azores",isl:true,sp:["sargo","cavala","carapau","lula","polvo","pargo","bica","salmonete"]},
+  {id:"terceira",r:"Z",n:"Terceira / Angra do Heroísmo",lat:38.65,lon:-27.22,m:[38.61,-27.22],tz:"Atlantic/Azores",isl:true,sp:["sargo","cavala","carapau","lula","polvo","pargo","bica"]},
+  {id:"faial",r:"Z",n:"Faial / Horta · Pico",lat:38.53,lon:-28.63,m:[38.53,-28.58],tz:"Atlantic/Azores",isl:true,sp:["sargo","cavala","carapau","lula","polvo","pargo","bica"]},
+  {id:"flores",r:"Z",n:"Flores / Santa Cruz",lat:39.45,lon:-31.13,m:[39.45,-31.08],tz:"Atlantic/Azores",isl:true,sp:["sargo","cavala","carapau","polvo","pargo"]}
+];
+ZONES.forEach(z=>{ z.tz=z.tz||"Europe/Lisbon"; z.t=z.t||"c"; z.f=z.f||[]; if(z.isl) z.f.push("island"); });
+
+/* =====================================================================
+   UTILITÁRIOS
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,"0");
+const r0 = n => Math.round(n);
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const store = {
+  get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ try{ Object.keys(localStorage).filter(x=>x.startsWith("pescapt-data-")).forEach(x=>localStorage.removeItem(x)); }catch(_){} } }
+};
+let LANG = (store.get("pescapt-lang")) || ((navigator.language||"pt").toLowerCase().startsWith("pt") ? "pt" : "en");
+const LOC = () => LANG==="pt" ? "pt-PT" : "en-GB";
+function t(k, v){ let s = T[LANG][k]; if(s==null) s = T.pt[k] ?? k; if(v && typeof s==="string") s = s.replace(/\{(\w+)\}/g,(_,x)=> v[x]!=null ? v[x] : ""); return s; }
+const f1 = n => (Math.round(n*10)/10).toLocaleString(LOC(),{minimumFractionDigits:1,maximumFractionDigits:1});
+const dirName = d => T[LANG].dirs[Math.round(((d%360)+360)%360/22.5)%16];
+const hm = m => `${pad(Math.floor(m/60)%24)}:${pad(Math.round(m%60))}`;
+const toMin = iso => parseInt(iso.slice(11,13))*60 + parseInt(iso.slice(14,16));
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const spName = k => SPECIES[k][LANG];
+
+function nowIn(tz){
+  const s = new Intl.DateTimeFormat("sv-SE",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
+  return {date:s.slice(0,10), h:parseInt(s.slice(11,13))%24, m:parseInt(s.slice(14,16)), month:parseInt(s.slice(5,7))};
+}
+function dayLabel(date, idx){
+  if(idx===0) return t("today");
+  if(idx===1) return t("tomorrow");
+  return new Date(date+"T12:00:00Z").toLocaleDateString(LOC(),{weekday:"short",timeZone:"UTC"}).replace(".","");
+}
+function distKm(a,b,c,d){
+  const rad=x=>x*Math.PI/180, dLat=rad(c-a), dLon=rad(d-b);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(dLon/2)**2;
+  return 12742*Math.asin(Math.sqrt(h));
+}
+
+/* Lua */
+const SYN = 29.530588853;
+function moonAge(date){
+  const tt = Date.parse(date+"T12:00:00Z"), ref = Date.UTC(2000,0,6,18,14);
+  let a = ((tt-ref)/864e5) % SYN; if(a<0) a+=SYN; return a;
+}
+function moonInfo(date){
+  const a = moonAge(date), p = a/SYN;
+  return {a, p, idx:Math.floor(p*8+0.5)%8, spring: a<=2 || a>=SYN-2 || Math.abs(a-SYN/2)<=2};
+}
+function moonSVG(p){
+  const r=9, k=Math.cos(2*Math.PI*p), rx=Math.abs(k)*r;
+  const d = p<0.5
+    ? `M0,${-r} A${r},${r} 0 0 1 0,${r} A${rx},${r} 0 0 ${k>0?0:1} 0,${-r}Z`
+    : `M0,${-r} A${r},${r} 0 0 0 0,${r} A${rx},${r} 0 0 ${k<0?0:1} 0,${-r}Z`;
+  return `<svg width="20" height="20" viewBox="-10 -10 20 20" aria-hidden="true"><circle r="${r}" fill="var(--line)"/><path d="${d}" fill="var(--ink)"/></svg>`;
+}
+const arrowSVG = deg => `<svg class="arrow" viewBox="0 0 24 24" style="transform:rotate(${deg+180}deg)" aria-hidden="true"><path d="M12 3l6 9h-4v9h-4v-9H6z" fill="currentColor"/></svg>`;
+const ICON_WARN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg>`;
+const ICON_TIP = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg>`;
+
+/* =====================================================================
+   DADOS (Open-Meteo, aceita várias coordenadas numa só chamada)
+   ===================================================================== */
+async function getJSON(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const j = await res.json();
+  if(j && j.error) throw new Error(j.reason||"API");
+  return j;
+}
+const CACHE_MS = 30*60*1000;
+const cacheKey = z => "pescapt-data-"+z.id;
+async function fetchZones(zs){
+  const tz = encodeURIComponent(zs[0].tz);
+  const wURL = `https://api.open-meteo.com/v1/forecast?latitude=${zs.map(z=>z.lat).join(",")}&longitude=${zs.map(z=>z.lon).join(",")}`+
+    `&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl,cloud_cover`+
+    `&daily=sunrise,sunset&timezone=${tz}&forecast_days=7&wind_speed_unit=kmh`;
+  const mURL = `https://marine-api.open-meteo.com/v1/marine?latitude=${zs.map(z=>z.m[0]).join(",")}&longitude=${zs.map(z=>z.m[1]).join(",")}`+
+    `&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature,sea_level_height_msl`+
+    `&timezone=${tz}&forecast_days=7&cell_selection=sea`;
+  const [w,m] = await Promise.all([getJSON(wURL), getJSON(mURL).catch(()=>null)]);
+  const wa = Array.isArray(w)?w:[w], ma = m ? (Array.isArray(m)?m:[m]) : [];
+  const out = {};
+  zs.forEach((z,i)=>{ const d={w:wa[i], m:ma[i]||null, at:Date.now()}; out[z.id]=d; store.set(cacheKey(z), d); });
+  return out;
+}
+async function loadZone(z, force){
+  const c = store.get(cacheKey(z));
+  if(!force && c && Date.now()-c.at < CACHE_MS) return c;
+  return (await fetchZones([z]))[z.id];
+}
+
+function buildHours(d){
+  const w=d.w.hourly, mh=d.m && d.m.hourly, mIdx={};
+  if(mh) mh.time.forEach((x,i)=>mIdx[x]=i);
+  const H = w.time.map((tm,i)=>{
+    const j = mIdx[tm];
+    const g = k => (mh && j!=null && mh[k] && mh[k][j]!=null) ? mh[k][j] : null;
+    return {t:tm, date:tm.slice(0,10), h:parseInt(tm.slice(11,13)),
+      temp:w.temperature_2m[i], pp:w.precipitation_probability[i]??0, pr:w.precipitation[i]??0,
+      ws:w.wind_speed_10m[i]??0, wg:w.wind_gusts_10m[i]??0, wd:w.wind_direction_10m[i]??0,
+      p:w.pressure_msl[i], cc:w.cloud_cover[i]??0,
+      wave:g("wave_height"), wper:g("wave_period"), wdir:g("wave_direction"),
+      sst:g("sea_surface_temperature"), sl:g("sea_level_height_msl")};
+  });
+  H.forEach((x,i)=>{ x.dp = (i>=3 && x.p!=null && H[i-3].p!=null) ? x.p-H[i-3].p : (H[i+3] && x.p!=null && H[i+3].p!=null ? H[i+3].p-x.p : null); });
+  return H;
+}
+
+/* Marés: extremos da altura do mar com interpolação parabólica */
+function findTides(H){
+  const out=[];
+  for(let i=1;i<H.length-1;i++){
+    const a=H[i-1].sl,b=H[i].sl,c=H[i+1].sl;
+    if(a==null||b==null||c==null) continue;
+    const hi = b>a && b>=c, lo = b<a && b<=c;
+    if(!hi && !lo) continue;
+    const den = a-2*b+c, off = den!==0 ? clamp((a-c)/(2*den),-0.5,0.5) : 0;
+    let mins = H[i].h*60 + off*60, date=H[i].date;
+    if(mins<0){ date=H[i-1].date; mins+=1440; } else if(mins>=1440){ date=H[i+1].date; mins-=1440; }
+    out.push({hi, fi:i+off, date, time:hm(mins), height:b-(a-c)*off/4});
+  }
+  return out;
+}
+function tideState(tides, i){
+  let prev=null,next=null;
+  for(const x of tides){ if(x.fi<=i) prev=x; else { next=x; break; } }
+  if(!next) return null;
+  return {rising:next.hi, toNext:next.fi-i, sincePrev:prev? i-prev.fi : 99, nextTime:next.time};
+}
+
+/* =====================================================================
+   PONTUAÇÃO — fatores guardados como [tipo, chave, valor, vars] p/ traduzir
+   ===================================================================== */
+function scoreHour(x, i, ctx){
+  const est = ctx.zone.t==="e";
+  let s = 50; const f = [];
+  const add = (v,k,vars)=>{ s+=v; f.push([v>0?"p":"m",k,v,vars||{}]); };
+  const w=x.ws, wv={v:r0(w), dd:x.wd};
+  if(w<=10) add(12,"f_windLight",wv);
+  else if(w<=18) add(6,"f_windMod",wv);
+  else if(w<=25) add(-5,"f_windFresh",wv);
+  else if(w<=32) add(-15,"f_windStrong",wv);
+  else add(-28,"f_windVery",wv);
+  if(x.wg>55) add(-12,"f_gusts",{v:r0(x.wg)});
+  if(x.wave!=null){
+    const h=x.wave, hv={h};
+    if(h<0.4) add(est?4:-3, est?"f_seaCalmEst":"f_seaFlat", hv);
+    else if(h<=1.3) add(est?2:12, "f_seaFoam", hv);
+    else if(h<=2.0) add(est?-2:2, "f_sea", hv);
+    else if(h<=3.0) add(est?-6:-15, "f_seaStrong", hv);
+    else add(est?-14:-30, "f_seaBig", hv);
+  }
+  if(x.pr>=2) add(-10,"f_rainHeavy",{v:x.pr}); else if(x.pr>=0.5) add(-3,"f_showers");
+  if(x.dp!=null){
+    if(x.dp<=-0.5 && x.dp>=-3) add(6,"f_pDownSlow");
+    else if(x.dp<-3) add(-4,"f_pDownFast");
+    else if(x.dp>2) add(-6,"f_pUpFast");
+  }
+  const ts = tideState(ctx.tides,i);
+  if(ts){
+    if(ts.rising){
+      if(ts.sincePrev<1) add(-4,"f_slack");
+      else if(ts.toNext<=3) add(10,"f_flood",{t:ts.nextTime});
+      else add(4,"f_rising");
+    } else {
+      if(ts.sincePrev<=1.5) add(6,"f_ebbStart");
+      else if(ts.toNext<=1) add(-6,"f_nearLow");
+      else if(est) add(3,"f_ebbEst");
+    }
+  }
+  const sun = ctx.sun[x.date];
+  if(sun){
+    const mm = x.h*60+30;
+    if(Math.abs(mm-sun.rise)<=90) add(10,"f_dawn",{t:hm(sun.rise)});
+    else if(Math.abs(mm-sun.set)<=90) add(10,"f_dusk",{t:hm(sun.set)});
+    else if(x.h>=11 && x.h<=16 && x.cc<30) add(-5,"f_noon");
+  }
+  if(moonInfo(x.date).spring) add(4,"f_spring");
+  const danger = (x.wave!=null && (x.wave>3.5 || (x.wave>2.5 && (x.wper||0)>=13))) || x.wg>65 || w>45;
+  if(danger){ s=Math.min(s,15); f.unshift(["d","f_danger",-99,{}]); }
+  return {s:clamp(Math.round(s),0,100), danger, f};
+}
+function factorText(fc){
+  const v = Object.assign({}, fc[3]);
+  if(v.dd!=null) v.d = dirName(v.dd);
+  if(v.h!=null) v.h = f1(v.h);
+  if(typeof v.v==="number" && fc[1]==="f_rainHeavy") v.v = f1(v.v);
+  return t(fc[1], v);
+}
+function verdictOf(score, danger){
+  if(danger) return {w:t("v_danger"),c:"var(--s-bad)"};
+  if(score>=75) return {w:t("v_exc"),c:"var(--s-exc)"};
+  if(score>=60) return {w:t("v_good"),c:"var(--s-good)"};
+  if(score>=45) return {w:t("v_ok"),c:"var(--s-ok)"};
+  if(score>=30) return {w:t("v_weak"),c:"var(--s-weak)"};
+  return {w:t("v_bad"),c:"var(--s-bad)"};
+}
+const colorOf = s => s>=75?"var(--s-exc)":s>=60?"var(--s-good)":s>=45?"var(--s-ok)":s>=30?"var(--s-weak)":"var(--s-bad)";
+
+function analyseDay(date, ctx){
+  const now = ctx.now, idxs = [];
+  ctx.H.forEach((x,i)=>{ if(x.date===date) idxs.push(i); });
+  const usable = date===now.date ? idxs.filter(i=>ctx.H[i].h>=now.h) : idxs;
+  if(!usable.length) return {score:null, windows:[], idxs, usable};
+  const L = Math.min(3, usable.length), wins=[];
+  for(let k=0;k<=usable.length-L;k++){
+    const seg = usable.slice(k,k+L);
+    wins.push({start:seg[0], len:L, mean:seg.reduce((a,i)=>a+ctx.S[i].s,0)/L, dang:seg.some(i=>ctx.S[i].danger)});
+  }
+  wins.sort((a,b)=>b.mean-a.mean);
+  const best=[wins[0]];
+  for(const w of wins){
+    if(best.length>=2) break;
+    if(w.mean>=45 && !w.dang && best.every(b=>Math.abs(b.start-w.start)>=3)) best.push(w);
+  }
+  const sn = ctx.sun[date];
+  const dayH = idxs.filter(i=>{ const mm=ctx.H[i].h*60; return sn ? mm>=sn.rise-60 && mm<=sn.set : true; });
+  const dangerDay = dayH.filter(i=>ctx.S[i].danger).length > dayH.length/2;
+  return {score:Math.round(best[0].mean), windows:best, idxs, usable, danger:dangerDay || best[0].dang};
+}
+function buildCtx(z, d){
+  const H = buildHours(d), tides = findTides(H), sun = {};
+  d.w.daily.time.forEach((x,i)=>{ sun[x]={rise:toMin(d.w.daily.sunrise[i]), set:toMin(d.w.daily.sunset[i])}; });
+  const ctx = {zone:z, H, tides, sun, dates:d.w.daily.time, at:d.at, now:nowIn(z.tz), hasMarine:!!(d.m && H.some(x=>x.wave!=null))};
+  ctx.S = H.map((x,i)=>scoreHour(x,i,ctx));
+  ctx.days = ctx.dates.map(dt=>analyseDay(dt,ctx));
+  return ctx;
+}
+const winText = (ctx,w) => { const s=ctx.H[w.start].h; return [`${pad(s)}:00`, `${pad((s+w.len)%24)}:00`]; };
+
+/* =====================================================================
+   DICAS E AVISOS
+   ===================================================================== */
+function tipsFor(ctx, a){
+  const mid = a.windows.length ? Math.min(a.windows[0].start+1, ctx.H.length-1) : a.idxs[12] ?? a.idxs[0];
+  const x = ctx.H[mid], out=[];
+  const est = ctx.zone.t==="e";
+  if(x.wave!=null && !est){
+    if(x.wave<0.6) out.push(t("tip_flat"));
+    else if(x.wave<=1.6) out.push(t("tip_foam"));
+    else if(x.wave<=2.5) out.push(t("tip_rough"));
+    else out.push(t("tip_big"));
+  }
+  if(est) out.push(t("tip_estuary"));
+  if(x.ws>=18){
+    const d = ((x.wd%360)+360)%360;
+    const westCoast = !ctx.zone.isl && ctx.zone.r!=="G";
+    if((d>=315 || d<=30) && westCoast) out.push(t("tip_north",{v:r0(x.ws)}));
+    else out.push(t("tip_wind",{d:dirName(d),v:r0(x.ws)}));
+  }
+  const dayIdx = a.idxs;
+  if(moonInfo(ctx.H[dayIdx[0]].date).spring && !est) out.push(t("tip_spring"));
+  if(dayIdx.some(i=>ctx.H[i].pr>=1)) out.push(t("tip_rain"));
+  if(out.length<3) out.push(t("tip_drag"));
+  return out.slice(0,4);
+}
+function alertsFor(z, date){
+  const mo = parseInt(date.slice(5,7)), out=[];
+  if(mo>=6 && mo<=9) out.push(t("a_bathing"));
+  if(z.f.includes("pnsacv") && mo===2) out.push(t("a_pnsacv"));
+  if(z.f.includes("pnsacv") && mo>=3 && mo<=5) out.push(t("a_pnsacvB"));
+  ["arrabida","berlengas","tejo","sado","river2","island"].forEach(k=>{ if(z.f.includes(k)) out.push(t("a_"+k)); });
+  return out;
+}
+
+/* =====================================================================
+   ESTADO E CARREGAMENTO
+   ===================================================================== */
+const state = { zone:null, ctx:null, day:null, hour:null, view:"forecast", alts:null, spAll:false };
+
+function initZones(){
+  const sel=$("#zoneSelect"), cur=sel.value || store.get("pescapt-zone") || "cascais";
+  sel.innerHTML=""; let lastR=null, og=null;
+  ZONES.forEach(z=>{
+    if(z.r!==lastR){ og=document.createElement("optgroup"); og.label=T[LANG].regions[z.r]; sel.appendChild(og); lastR=z.r; }
+    const o=document.createElement("option"); o.value=z.id; o.textContent=z.n; og.appendChild(o);
+  });
+  sel.value = ZONES.some(z=>z.id===cur) ? cur : "cascais";
+}
+$("#zoneSelect").addEventListener("change",()=>{ store.set("pescapt-zone",$("#zoneSelect").value); state.day=null; load(); });
+
+async function load(force){
+  const z = ZONES.find(x=>x.id===$("#zoneSelect").value);
+  state.zone = z; state.alts = null;
+  renderSpecies();
+  $("#main").innerHTML = `<div class="skeleton">${esc(t("loading",{z:z.n}))}</div>`;
+  $("#days").innerHTML = ""; $("#alerts").innerHTML = "";
+  try{
+    const d = await loadZone(z, force);
+    if(state.zone!==z) return;
+    state.ctx = buildCtx(z, d);
+    const c = state.ctx;
+    if(state.day==null || state.day>=c.dates.length) state.day = (c.days[0].usable.length<3 && c.dates.length>1) ? 1 : 0;
+    state.hour = null;
+    render();
+  }catch(e){
+    console.error(e);
+    $("#main").innerHTML = `<div class="errbox"><strong>${t("errTitle")}</strong><span class="note">${t("errHint")} (${esc(e.message)})</span>
+      <button class="btn" style="align-self:flex-start" id="retry">${t("retry")}</button></div>`;
+    $("#retry").onclick=()=>load(true);
+  }
+}
+
+/* =====================================================================
+   RENDER — PREVISÃO
+   ===================================================================== */
+function render(){
+  if(!state.ctx) return;
+  const ago = Math.round((Date.now()-state.ctx.at)/60000);
+  $("#updated").textContent = ago<1 ? t("updatedNow") : t("updatedAgo",{n:ago});
+  renderDays(); renderAlerts(); renderMain();
+}
+function renderDays(){
+  const c=state.ctx;
+  $("#days").innerHTML = c.dates.map((dt,i)=>{
+    const a=c.days[i], col = a.score==null ? "var(--line)" : (a.danger ? "var(--s-bad)" : colorOf(a.score));
+    return `<button class="day" type="button" data-d="${i}" aria-pressed="${i===state.day}" aria-label="${esc(dayLabel(dt,i))} ${a.score??""}">
+      <span class="dn">${esc(dayLabel(dt,i))}${i>1?" "+parseInt(dt.slice(8,10)):""}</span>
+      <span class="ds">${a.score==null?"–":a.score}</span><span class="bar" style="background:${col}"></span></button>`;
+  }).join("");
+  $("#days").querySelectorAll(".day").forEach(b=>b.onclick=()=>{ state.day=+b.dataset.d; state.hour=null; render(); });
+}
+function renderAlerts(){
+  const list = alertsFor(state.zone, state.ctx.dates[state.day]);
+  $("#alerts").innerHTML = list.map(x=>`<div class="alert">${ICON_WARN}<div>${x}</div></div>`).join("");
+}
+function renderMain(){
+  const c=state.ctx, date=c.dates[state.day], a=c.days[state.day], now=c.now, isToday = date===now.date;
+  if(state.hour==null || c.H[state.hour].date!==date){
+    if(isToday){ const ix=a.idxs.find(i=>c.H[i].h===now.h); state.hour = ix!=null?ix:a.idxs[0]; }
+    else state.hour = a.windows.length ? a.windows[0].start+1 : a.idxs[0];
+  }
+  const mi = moonInfo(date), sun=c.sun[date];
+  let vHTML;
+  if(a.score==null){
+    vHTML = `<section class="verdict" style="--vc:var(--line)"><div class="v-word" style="color:var(--muted)">${t("dayOver")}</div><div class="v-sub">${t("dayOverSub")}</div></section>`;
+  } else {
+    const v = verdictOf(a.score, a.danger), circ = 2*Math.PI*32, off = circ*(1-a.score/100);
+    const mid = Math.min(a.windows[0].start+1, a.windows[0].start+a.windows[0].len-1);
+    const fs = c.S[mid].f.filter(x=>x[0]!=="d").slice().sort((p,q)=>Math.abs(q[2])-Math.abs(p[2]));
+    const pros = fs.filter(x=>x[0]==="p").slice(0,4), cons = fs.filter(x=>x[0]==="m").slice(0,2);
+    const [wa,wb] = winText(c,a.windows[0]);
+    const lead = a.danger ? t("leadDanger") : t(a.score>=60?"leadGo":"leadMaybe",{a:wa,b:wb}) + (isToday ? t("leadToday") : "");
+    vHTML = `<section class="verdict" style="--vc:${v.c}">
+      <div class="v-head">
+        <div class="gauge" role="img" aria-label="${a.score}/100">
+          <svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="32" fill="none" stroke="var(--line)" stroke-width="7"/>
+          <circle class="val" cx="38" cy="38" r="32" fill="none" stroke="${v.c}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${off}"/></svg>
+          <div class="num">${a.score}</div>
+        </div>
+        <div><div class="v-word">${v.w}</div><div class="v-sub">${lead}</div></div>
+      </div>
+      <div class="windows">${a.windows.map((w,k)=>{ const [x1,x2]=winText(c,w); return `<div class="win"><small>${t(k===0?"bestWin":"altWin")}</small><strong>${x1}–${x2}</strong></div>`; }).join("")}</div>
+      <ul class="factors">${a.danger?`<li class="d"><i>!</i>${t("dangerLine")}</li>`:""}${pros.map(x=>`<li class="p"><i>+</i>${esc(factorText(x))}</li>`).join("")}${cons.map(x=>`<li class="m"><i>−</i>${esc(factorText(x))}</li>`).join("")}</ul>
+      <div class="astro">
+        <div><small class="lbl">${t("sunrise")}</small><strong>${sun?hm(sun.rise):"–"}</strong></div>
+        <div><small class="lbl">${t("sunset")}</small><strong>${sun?hm(sun.set):"–"}</strong></div>
+        <div><small class="lbl">${t("moon")}</small><strong>${moonSVG(mi.p)}<span class="moonname">${T[LANG].moonNames[mi.idx]}</span></strong></div>
+      </div>
+    </section>`;
+  }
+  const tipsHTML = a.score==null ? "" : `<section class="sec"><h2>${t("tipsTitle")}</h2><ul class="tips">${tipsFor(c,a).map(x=>`<li>${ICON_TIP}<span>${esc(x)}</span></li>`).join("")}</ul></section>`;
+  const dayTides = c.tides.filter(x=>x.date===date);
+  const tidesHTML = !c.hasMarine ? `<p class="note">${t("noMarine")}</p>` :
+    dayTides.length ? `<div class="tides">${dayTides.map(x=>`<div class="tide ${x.hi?"hi":""}"><small>${t(x.hi?"high":"low")}</small><strong>${x.time}</strong><br><em>${x.height>=0?"+":""}${f1(x.height)} m</em></div>`).join("")}</div>
+      <p class="note">${t(mi.spring?"springNote":"neapNote")} ${t("tideNote")}</p>` : `<p class="note">${t("noTides")}</p>`;
+
+  $("#main").innerHTML = vHTML + tipsHTML + `
+    <section class="sec chart"><h2>${t("hourly")} <span>${t("tapBar")}</span></h2>${chartSVG(a,date)}
+      <div class="legend"><span><i style="background:var(--s-exc)"></i>${t("lgScore")}</span><span><i style="background:var(--tide);height:3px"></i>${t("lgTide")}</span><span><i style="background:var(--night);border:1px solid var(--line)"></i>${t("lgNight")}</span></div></section>
+    <section class="sec" id="hourSec">${hourHTML()}</section>
+    <section class="sec"><h2>${t("tides")} <span>${t(c.zone.t==="e"?"atBar":"atCoast")}</span></h2>${tidesHTML}</section>
+    <section class="sec" id="planB">${planBHTML()}</section>`;
+  $("#main").querySelectorAll(".hit").forEach(el=>el.onclick=()=>{ state.hour=+el.dataset.i; updateHour(); });
+  bindPlanB();
+}
+
+function chartSVG(a, date){
+  const c=state.ctx, W=360, top=12, base=112, Hh=base-top, bw=W/24, sun=c.sun[date], isToday = date===c.now.date;
+  let night="", bars="", hits="", labels="", tide="", nowLine="";
+  if(sun){
+    night += `<rect x="0" y="${top}" width="${sun.rise/60*bw}" height="${Hh}" fill="var(--night)"/>`;
+    night += `<rect x="${sun.set/60*bw}" y="${top}" width="${Math.max(0,W-sun.set/60*bw)}" height="${Hh}" fill="var(--night)"/>`;
+  }
+  a.idxs.forEach(i=>{
+    const x=c.H[i], s=c.S[i], X=x.h*bw, hgt=Math.max(3, s.s/100*(Hh-8)), past = isToday && x.h<c.now.h;
+    bars += `<rect x="${X+2}" y="${base-hgt}" width="${bw-4}" height="${hgt}" rx="2" fill="${s.danger?"var(--s-bad)":colorOf(s.s)}" opacity="${past?0.3:0.9}"/>`;
+    hits += `<rect class="hit" data-i="${i}" x="${X}" y="${top}" width="${bw}" height="${Hh+18}" fill="transparent"><title>${pad(x.h)}:00 · ${s.s}</title></rect>`;
+  });
+  for(let h=0;h<24;h+=3) labels += `<text x="${h*bw+bw/2}" y="${base+14}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--font-mono)">${pad(h)}</text>`;
+  const all = c.H.map(x=>x.sl).filter(v=>v!=null);
+  if(all.length>3 && a.idxs.some(i=>c.H[i].sl!=null)){
+    const mn=Math.min(...all), mx=Math.max(...all), rng=(mx-mn)||1;
+    const pts = a.idxs.filter(i=>c.H[i].sl!=null).map(i=>{ const x=c.H[i]; return `${(x.h*bw+bw/2).toFixed(1)},${(top+6+(1-(x.sl-mn)/rng)*(Hh*0.55)).toFixed(1)}`; }).join(" ");
+    tide = `<polyline points="${pts}" fill="none" stroke="var(--tide)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  if(isToday){ const X=(c.now.h*60+c.now.m)/60*bw; nowLine=`<line x1="${X}" x2="${X}" y1="${top}" y2="${base}" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="3 3"/>`; }
+  const hx = c.H[state.hour].h*bw+0.5;
+  const sel = `<rect id="selRect" x="${hx}" y="${top}" width="${bw-1}" height="${Hh}" rx="3" fill="none" stroke="var(--ink)" stroke-width="1.5"/>`;
+  return `<svg viewBox="0 0 ${W} ${base+20}" role="img" aria-label="${t("hourly")}">${night}<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>${bars}${tide}${nowLine}${sel}${labels}${hits}</svg>`;
+}
+function hourHTML(){
+  const c=state.ctx, i=state.hour, x=c.H[i], s=c.S[i], ts = tideState(c.tides,i);
+  const trend = x.dp==null?"":x.dp<=-0.5?t("pDown"):x.dp>=0.5?t("pUp"):t("pStable");
+  const items = s.f.slice().sort((p,q)=>Math.abs(q[2])-Math.abs(p[2])).slice(0,5);
+  return `<div class="hourhead"><strong>${pad(x.h)}:00</strong><span>${t("scoreOf")} <b class="mono" style="color:${s.danger?"var(--s-bad)":colorOf(s.s)}">${s.s}</b>/100</span></div>
+    <div class="grid">
+      <div class="cell"><small>${t("wind")}</small><strong>${arrowSVG(x.wd)}${r0(x.ws)} km/h</strong><em>${dirName(x.wd)} · ${t("gusts")} ${r0(x.wg)}</em></div>
+      <div class="cell"><small>${t("swell")}</small><strong>${x.wave!=null?f1(x.wave)+" m":"–"}</strong><em>${x.wper!=null?r0(x.wper)+" s":""}${x.wdir!=null?" · "+t("from")+" "+dirName(x.wdir):""}</em></div>
+      <div class="cell"><small>${t("tide")}</small><strong>${ts?t(ts.rising?"rising":"falling"):"–"}</strong><em>${ts?t(ts.rising?"hiAt":"loAt",{t:ts.nextTime}):""}</em></div>
+      <div class="cell"><small>${t("seaTemp")}</small><strong>${x.sst!=null?f1(x.sst)+" °C":"–"}</strong><em>${t("air")} ${f1(x.temp)} °C</em></div>
+      <div class="cell"><small>${t("rain")}</small><strong>${x.pp}%</strong><em>${x.pr>0?f1(x.pr)+" mm":t("noRain")}</em></div>
+      <div class="cell"><small>${t("pressure")}</small><strong>${x.p!=null?r0(x.p)+" hPa":"–"}</strong><em>${trend}</em></div>
+    </div>
+    <ul class="factors">${items.map(fc=>`<li class="${fc[0]}"><i>${fc[0]==="p"?"+":fc[0]==="d"?"!":"−"}</i>${esc(factorText(fc))}</li>`).join("")}</ul>`;
+}
+function updateHour(){
+  const x=state.ctx.H[state.hour], r=$("#selRect");
+  if(r) r.setAttribute("x", x.h*15+0.5);
+  $("#hourSec").innerHTML = hourHTML();
+}
+
+/* Plano B: zonas próximas */
+function neighbours(z){
+  return ZONES.filter(o=>o!==z && o.tz===z.tz).map(o=>({z:o,d:distKm(z.lat,z.lon,o.lat,o.lon)}))
+    .filter(o=>o.d<=100).sort((a,b)=>a.d-b.d).slice(0,5);
+}
+function planBHTML(){
+  const head = `<h2>${t("planB")} <span>${t("planBSub")}</span></h2><p class="note">${t("planBHint")}</p>`;
+  const nb = neighbours(state.zone);
+  if(!nb.length) return head + `<p class="note">${t("noAlts")}</p>`;
+  if(!state.alts) return head + `<button class="btn primary" id="cmpBtn" type="button">${t("compare")}</button>`;
+  if(state.alts==="loading") return head + `<div class="skeleton">${t("comparing")}</div>`;
+  if(state.alts.error) return head + `<p class="msg err">${t("errTitle")}</p><button class="btn" id="cmpBtn" type="button">${t("retry")}</button>`;
+  const date = state.ctx.dates[state.day];
+  const rows = [{z:state.zone,d:0,ctx:state.ctx}].concat(state.alts.map(x=>x)).map(o=>{
+    const di = o.ctx.dates.indexOf(date); const a = di>=0 ? o.ctx.days[di] : null;
+    return {...o, a};
+  }).filter(o=>o.a && o.a.score!=null).sort((p,q)=>(q.a.danger?-1:q.a.score)-(p.a.danger?-1:p.a.score));
+  return head + `<div class="alts">${rows.map(o=>{
+    const col = o.a.danger ? "var(--s-bad)" : colorOf(o.a.score), [x1,x2]=winText(o.ctx,o.a.windows[0]);
+    const mid = o.ctx.H[o.a.windows[0].start];
+    const cur = o.z===state.zone;
+    return `<button class="alt ${cur?"cur":""}" type="button" data-z="${o.z.id}">
+      <span class="sc mono" style="background:${col}">${o.a.score}</span>
+      <span><b>${esc(o.z.n)}</b><i>${x1}–${x2} · ${mid.wave!=null?f1(mid.wave)+" m · ":""}${r0(mid.ws)} km/h ${dirName(mid.wd)}</i></span>
+      <span class="km">${cur?t("here"):r0(o.d)+" km"}</span></button>`;
+  }).join("")}</div>`;
+}
+function bindPlanB(){
+  const b=$("#cmpBtn"); if(b) b.onclick=comparePlanB;
+  document.querySelectorAll(".alt").forEach(el=>el.onclick=()=>{
+    if(el.dataset.z===state.zone.id) return;
+    const keepDay = state.day;
+    $("#zoneSelect").value = el.dataset.z; store.set("pescapt-zone", el.dataset.z);
+    state.day = keepDay; load(); window.scrollTo({top:0,behavior:"smooth"});
+  });
+}
+async function comparePlanB(){
+  const z=state.zone, nb = neighbours(z);
+  state.alts="loading"; $("#planB").innerHTML = planBHTML();
+  try{
+    const need = nb.filter(o=>{ const c=store.get(cacheKey(o.z)); return !(c && Date.now()-c.at<CACHE_MS); }).map(o=>o.z);
+    const fresh = need.length ? await fetchZones(need) : {};
+    if(state.zone!==z) return;
+    state.alts = nb.map(o=>({z:o.z, d:o.d, ctx:buildCtx(o.z, fresh[o.z.id] || store.get(cacheKey(o.z)))}));
+  }catch(e){ console.error(e); state.alts={error:true}; }
+  $("#planB").innerHTML = planBHTML(); bindPlanB();
+}
+
+/* =====================================================================
+   ESPÉCIES
+   ===================================================================== */
+const imgCache = store.get("pescapt-img") || {};
+async function speciesImg(key){
+  if(imgCache[key]!==undefined) return imgCache[key];
+  const sci = encodeURIComponent(SPECIES[key].sci.replace(/ /g,"_"));
+  try{
+    let j = await getJSON(`https://pt.wikipedia.org/api/rest_v1/page/summary/${sci}`).catch(()=>null);
+    if(!j || !j.thumbnail) j = await getJSON(`https://en.wikipedia.org/api/rest_v1/page/summary/${sci}`);
+    const src = j.thumbnail ? j.thumbnail.source : null;
+    imgCache[key] = src ? {thumb:src, big:(j.originalimage && j.originalimage.width<=1600) ? j.originalimage.source : src.replace(/\/\d+px-/,"/640px-"), page:j.content_urls?.desktop?.page} : null;
+  }catch(e){ return null; }
+  store.set("pescapt-img", imgCache);
+  return imgCache[key];
+}
+const FALLBACK = "data:image/svg+xml,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80"><rect width="120" height="80" fill="#9fb5b4"/><path d="M28 40c14-16 44-18 62 0-18 18-48 16-62 0zm62 0l16-12v24z" fill="#5f7d7e"/><circle cx="44" cy="37" r="3" fill="#eaf1f0"/></svg>`);
+const isClosed = (k,z,mo) => SPECIES[k].pnsacv && z.f.includes("pnsacv") && mo===2;
+
+function renderSpecies(){
+  const z = state.zone; if(!z) return;
+  const mo = nowIn(z.tz).month;
+  $("#spIntro").textContent = t("spIntro");
+  $("#spNote").textContent = t("spNote");
+  $("#spFilter").innerHTML = `<button class="chip" type="button" data-all="0" aria-pressed="${!state.spAll}">${t("zoneSp")}: ${esc(z.n.split(" / ")[0])}</button><button class="chip" type="button" data-all="1" aria-pressed="${state.spAll}">${t("allSp")}</button>`;
+  $("#spFilter").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ state.spAll = b.dataset.all==="1"; renderSpecies(); });
+  $("#spAlert").innerHTML = z.isl ? `<div class="alert">${ICON_WARN}<div>${t("islandAlert")}</div></div>` : "";
+  const keys = state.spAll ? Object.keys(SPECIES) : z.sp;
+  const list = keys.map(k=>({k, on:SPECIES[k].peak.includes(mo), cl:isClosed(k,z,mo)}))
+    .sort((a,b)=> state.spAll ? spName(a.k).localeCompare(spName(b.k),LOC()) : (b.on-a.on));
+  $("#speciesList").innerHTML = list.map(({k,on,cl})=>{
+    const s=SPECIES[k], sub = LANG==="en" ? `${s.pt} · <i>${s.sci}</i>` : `<i>${s.sci}</i>`;
+    const tag = cl ? `<span class="season closed">${t("closedSeason")}</span>` : on ? `<span class="season">${t("inSeason")}</span>` : "";
+    return `<button class="sp" type="button" data-k="${k}">
+      <img class="thumb" id="th-${k}" src="${(imgCache[k]&&imgCache[k].thumb)||FALLBACK}" alt="" loading="lazy">
+      <span class="sp-info"><b>${esc(spName(k))}${tag}</b><span class="note">${sub}</span></span>
+      <span class="minsize"><small>${t("minShort")}</small><strong>${s.min}</strong></span></button>`;
+  }).join("");
+  $("#speciesList").querySelectorAll(".sp").forEach(b=>b.onclick=()=>openSheet(b.dataset.k));
+  if(state.view==="species") list.forEach(async ({k})=>{ const im=await speciesImg(k); const el=document.getElementById("th-"+k); if(im && el) el.src=im.thumb; });
+}
+async function openSheet(k){
+  const s=SPECIES[k], z=state.zone, mo=nowIn(z.tz).month;
+  $("#sheetName").textContent = spName(k);
+  $("#sheetSci").textContent = (LANG==="en" ? s.pt+" · " : "") + s.sci;
+  $("#sheetMin").textContent = s.min + (s.minNote ? " ("+s.minNote[LANG]+")" : "");
+  const al=[];
+  if(k==="robalo") al.push(t("robaloAlert"));
+  if(s.pnsacv) al.push(t("sargoPnsacvAlert"));
+  if(z.isl) al.push(t("islandAlert"));
+  $("#sheetAlert").innerHTML = al.map(x=>`<div class="alert" style="margin-bottom:6px">${ICON_WARN}<div>${x}</div></div>`).join("");
+  $("#sheetRows").innerHTML = [["sOnde","onde"],["sIsco","isco"],["sTec","tec"],["sCond","cond"]].map(([a,b])=>`<div><dt>${t(a)}</dt><dd>${esc(s[b][LANG])}</dd></div>`).join("");
+  const M = LANG==="pt" ? ["J","F","M","A","M","J","J","A","S","O","N","D"] : ["J","F","M","A","M","J","J","A","S","O","N","D"];
+  $("#sheetMonths").innerHTML = M.map((l,i)=>`<span class="${s.peak.includes(i+1)?"on":""} ${i+1===mo?"now":""}">${l}</span>`).join("");
+  const img=$("#sheetImg"); img.src=FALLBACK; img.alt=spName(k); $("#sheetCredit").textContent="";
+  const sh=$("#sheet"); if(sh.showModal) sh.showModal(); else sh.setAttribute("open","");
+  const im = await speciesImg(k);
+  if(im){ img.onerror=()=>{img.onerror=null; img.src=im.thumb;}; img.src=im.big;
+    $("#sheetCredit").innerHTML = `${t("photo")}: <a href="${esc(im.page||"https://commons.wikimedia.org")}" target="_blank" rel="noopener" style="color:inherit">Wikipedia / Wikimedia Commons</a>`; }
+}
+$("#sheetClose").onclick=()=>$("#sheet").close();
+$("#sheet").addEventListener("click",e=>{ if(e.target.id==="sheet") $("#sheet").close(); });
+
+/* =====================================================================
+   VISTAS, IDIOMA, LOCALIZAÇÃO
+   ===================================================================== */
+const VIEWS = ["forecast","species","guide"];
+function showView(v){
+  if(!VIEWS.includes(v)) v="forecast";
+  state.view=v;
+  VIEWS.forEach(x=>$("#v-"+x).hidden = x!==v);
+  $("#zoneBar").hidden = v==="guide";
+  document.querySelectorAll(".nav a").forEach(a=>a.setAttribute("aria-current", a.dataset.view===v?"page":"false"));
+  if(v==="species") renderSpecies();
+}
+window.addEventListener("hashchange",()=>{ showView(location.hash.slice(1)); window.scrollTo(0,0); });
+
+function applyLang(){
+  document.documentElement.lang = LANG==="pt" ? "pt-PT" : "en";
+  document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.lang===LANG));
+  $("#geoBtn").setAttribute("aria-label", t("near"));
+  $("#v-guide").innerHTML = GUIDE[LANG];
+  $("#foot").textContent = t("foot");
+  initZones();
+  if(state.ctx) render();
+  renderSpecies();
+}
+document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{ LANG=b.dataset.lang; store.set("pescapt-lang",LANG); applyLang(); });
+
+$("#geoBtn").onclick=()=>{
+  const msg=$("#geoMsg"); msg.hidden=false; msg.className="msg"; msg.textContent=t("geoAsk");
+  if(!navigator.geolocation){ msg.className="msg err"; msg.textContent=t("geoNo"); return; }
+  navigator.geolocation.getCurrentPosition(p=>{
+    let best=null, bd=1e9;
+    ZONES.forEach(z=>{ const d=distKm(p.coords.latitude,p.coords.longitude,z.lat,z.lon); if(d<bd){bd=d;best=z;} });
+    $("#zoneSelect").value=best.id; store.set("pescapt-zone",best.id);
+    msg.textContent = t(bd>60?"geoFar":"geoOk",{d:r0(bd), z:best.n});
+    state.day=null; load();
+  },()=>{ msg.className="msg err"; msg.textContent=t("geoDenied"); },{timeout:10000,maximumAge:600000});
+};
+
+/* Arranque */
+applyLang();
+showView(location.hash.slice(1));
+load();
+setInterval(()=>{ if(state.ctx && Date.now()-state.ctx.at > CACHE_MS && document.visibilityState==="visible") load(); }, 5*60*1000);
+if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
