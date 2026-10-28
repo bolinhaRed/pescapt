@@ -3,9 +3,9 @@
 **PT** · Previsão de pesca para toda a costa portuguesa, Açores e Madeira incluídos: meteo, ondulação, marés, melhor hora para pescar, espécies com tamanhos mínimos legais e as regras da pesca lúdica.
 **EN** · Fishing forecast for the whole Portuguese coast, including the Azores and Madeira: weather, swell, tides, best time to fish, species with legal minimum sizes and recreational fishing rules.
 
-<p align="center"><img src="screenshot.png" width="320" alt="PescaPT Live"></p>
+### 👉 [Abrir a app · Open the app](https://bolinhared.github.io/pescapt/)
 
-👉 **App:** `https://<o-teu-utilizador>.github.io/pescapt/`
+<p align="center"><img src="screenshot.png" width="320" alt="PescaPT Live"></p>
 
 ---
 
@@ -21,15 +21,12 @@
 - **Espécies** por zona com foto, tamanho mínimo legal (tabela DGRM 30-10-2025), isco, técnica e melhores meses.
 - **Guia**: licença, limites diários, defesos, onde é proibido pescar, segurança e dicas.
 - **Avisos automáticos**: época balnear, defeso do sargo na Costa Vicentina, Arrábida, Berlengas, regras do Tejo e Sado, regras regionais nas ilhas.
-- Em português e em inglês. Instala-se como app no telemóvel (PWA) e funciona com rede fraca.
+- Em português e em inglês. Grátis, sem anúncios e sem registo.
 
-### Publicar no GitHub Pages
-1. Cria um repositório público chamado `pescapt`.
-2. Envia todos os ficheiros desta pasta para a raiz do repositório.
-3. Em **Settings → Pages**, escolhe *Deploy from a branch*, branch `main`, pasta `/ (root)`.
-4. Ao fim de um minuto a app fica em `https://<utilizador>.github.io/pescapt/`.
-
-Não precisa de servidor nem de chave de API. Tudo corre no navegador.
+### Instalar no telemóvel
+Não é preciso descarregar nada da loja de apps.
+- **Android (Chrome):** abre o link, toca em **⋮** e escolhe **"Adicionar ao ecrã principal"** ou **"Instalar app"**.
+- **iPhone (Safari):** abre o link, toca em **Partilhar** e escolhe **"Adicionar ao ecrã principal"**.
 
 ### Avisos
 - A pontuação é uma estimativa e não garante peixe. As marés vêm de um modelo e podem falhar 20 a 40 minutos junto à costa. As tabelas oficiais estão no [Instituto Hidrográfico](https://www.hidrografico.pt/).
@@ -48,10 +45,14 @@ Não precisa de servidor nem de chave de API. Tudo corre no navegador.
 - **Tides** (high and low water) and a tide chart.
 - **Species** per area with photos, legal minimum size (DGRM table, 30 Oct 2025), bait, technique and best months.
 - **Guide**: licence, daily limits, closed seasons, where fishing is banned, safety and tips.
-- Portuguese and English. Installable on your phone (PWA).
+- Portuguese and English. Free, no ads, no sign-up.
 
-### Deploy
-Push the files to a public repo and enable **GitHub Pages** (branch `main`, root folder). No server and no API keys needed.
+### Install on your phone
+- **Android (Chrome):** open the link, tap **⋮** and choose **"Add to Home screen"** or **"Install app"**.
+- **iPhone (Safari):** open the link, tap **Share** and choose **"Add to Home Screen"**.
+
+### Disclaimer
+The score is an estimate, not a promise. Tides are modelled and can be 20–40 min off near the shore. Rules can change: always check with [DGRM](https://www.dgrm.pt/zonas-de-pesca) and the local harbour master. The Azores and Madeira have their own regional rules.
 
 ---
 
@@ -61,10 +62,9 @@ Push the files to a public repo and enable **GitHub Pages** (branch `main`, root
 - Regras e tamanhos mínimos / Rules & minimum sizes: [DGRM](https://www.dgrm.pt), FAQ Pesca Lúdica 2026 e Tabela de Tamanhos Mínimos de 30-10-2025
 
 ## Contribuir · Contributing
-Encontraste um erro, um tamanho desatualizado ou falta uma zona? Abre uma *issue* ou um *pull request*.
-Zonas e espécies estão nas constantes `ZONES` e `SPECIES` em `index.html`.
+Encontraste um erro, um tamanho desatualizado ou falta uma zona? Abre uma [issue](https://github.com/bolinhaRed/pescapt/issues).
 
-Found a mistake, an outdated size or a missing area? Open an issue or pull request. Areas and species live in the `ZONES` and `SPECIES` constants in `index.html`.
+Found a mistake, an outdated size or a missing area? Open an [issue](https://github.com/bolinhaRed/pescapt/issues).
 
 ## Licença · License
 MIT
